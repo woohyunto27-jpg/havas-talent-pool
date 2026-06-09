@@ -1,0 +1,1951 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Havas Future Talent Pool</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<!-- JSONBin.io - Pure REST API, no SDK needed, works in China -->
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f5f6fa;--card:#fff;--border:#e2e4ed;--text:#1a1d2e;--text2:#6b7084;
+  --accent:#5b4cdb;--accent2:#7c6ef0;--green:#00a884;--yellow:#d4a017;
+  --blue:#3d8bfd;--red:#e5484d;--orange:#d45d22;--purple:#8b5cf6;
+  --radius:10px;--shadow:0 2px 8px rgba(0,0,0,0.06);
+}
+body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);line-height:1.5}
+a{color:var(--accent);text-decoration:none}
+
+/* Nav */
+.nav{background:#fff;border-bottom:1px solid var(--border);padding:0 24px;display:flex;align-items:center;gap:0;position:sticky;top:0;z-index:50}
+.nav-brand{padding:16px 20px 16px 0;font-weight:700;font-size:16px;color:var(--accent);white-space:nowrap;border-right:1px solid var(--border);margin-right:8px}
+.nav-tab{padding:14px 16px;font-size:13px;font-weight:500;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap}
+.nav-tab:hover{color:var(--accent);background:rgba(91,76,219,0.04)}
+.nav-tab.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+.nav-sync{ margin-left:auto; padding:8px 12px; font-size:12px; border-radius:20px; display:flex; align-items:center; gap:6px; cursor:default; transition:all .2s; }
+.nav-sync.synced{ background:rgba(0,168,132,.1); color:var(--green); }
+.nav-sync.syncing{ background:rgba(212,160,23,.1); color:var(--yellow); }
+.nav-sync.offline{ background:rgba(107,112,132,.1); color:var(--text2); }
+.nav-sync.error{ background:rgba(229,72,77,.1); color:var(--red); }
+
+/* Page */
+.page{display:none;padding:24px;max-width:1400px;margin:0 auto}
+.page.active{display:block}
+
+/* Cards */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px;box-shadow:var(--shadow)}
+.card-title{font-size:14px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:6px}
+
+/* Stats */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:20px}
+.stat-box{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;text-align:center;box-shadow:var(--shadow)}
+.stat-box .num{font-size:28px;font-weight:700}
+.stat-box .lbl{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.3px;margin-top:2px}
+
+/* Charts row */
+.charts-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+@media(max-width:768px){.charts-row{grid-template-columns:1fr}}
+.chart-wrap{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow)}
+.chart-wrap canvas{max-height:260px}
+
+/* Table */
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{background:#f8f9fc;padding:8px 10px;text-align:left;font-weight:600;font-size:11px;color:var(--text2);border-bottom:2px solid var(--border);white-space:nowrap}
+td{padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+tr:hover td{background:rgba(91,76,219,0.03)}
+
+/* Buttons */
+.btn{padding:7px 16px;border-radius:6px;border:none;font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:4px}
+.btn-p{background:var(--accent);color:#fff}.btn-p:hover{background:var(--accent2)}
+.btn-s{background:transparent;color:var(--accent);border:1px solid var(--accent)}.btn-s:hover{background:rgba(91,76,219,0.06)}
+.btn-d{background:transparent;color:var(--red);border:1px solid var(--red)}.btn-d:hover{background:rgba(229,72,77,0.06)}
+.btn-sm{padding:4px 10px;font-size:11px}
+.btn-g{background:var(--green);color:#fff}.btn-g:hover{background:#009975}
+.btn-o{background:var(--orange);color:#fff}.btn-o:hover{background:#c04d12}
+
+/* Badge */
+.badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:500}
+.badge-green{background:rgba(0,168,132,.1);color:var(--green)}
+.badge-yellow{background:rgba(212,160,23,.1);color:var(--yellow)}
+.badge-blue{background:rgba(61,139,253,.1);color:var(--blue)}
+.badge-red{background:rgba(229,72,77,.1);color:var(--red)}
+.badge-purple{background:rgba(139,92,246,.1);color:var(--purple)}
+.badge-gray{background:rgba(107,112,132,.1);color:var(--text2)}
+
+/* Modal */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:100;justify-content:center;align-items:flex-start;padding-top:40px;overflow-y:auto}
+.modal-bg.show{display:flex}
+.modal{background:#fff;border-radius:14px;width:640px;max-width:96vw;max-height:88vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.12)}
+.modal-head{display:flex;justify-content:space-between;align-items:center;padding:18px 22px;border-bottom:1px solid var(--border)}
+.modal-head h3{font-size:15px;font-weight:600}
+.modal-close{background:none;border:none;font-size:18px;cursor:pointer;color:var(--text2);padding:2px 6px;border-radius:4px}
+.modal-close:hover{background:var(--bg)}
+.modal-body{padding:18px 22px}
+.modal-foot{display:flex;justify-content:flex-end;gap:8px;padding:14px 22px;border-top:1px solid var(--border)}
+
+/* Form */
+.fg{margin-bottom:12px}
+.fg label{display:block;font-size:11px;font-weight:500;color:var(--text2);margin-bottom:3px}
+.fg input,.fg select,.fg textarea{width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit;outline:none;transition:border .15s}
+.fg input:focus,.fg select:focus,.fg textarea:focus{border-color:var(--accent)}
+.fg textarea{resize:vertical;min-height:50px}
+.fr{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.fr3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+@media(max-width:600px){.fr,.fr3{grid-template-columns:1fr}}
+
+/* Stars */
+.stars{display:flex;gap:4px;flex-direction:row-reverse;justify-content:flex-end}
+.stars input{display:none}
+.stars label{font-size:20px;color:#ddd;cursor:pointer;transition:color .1s}
+.stars label:hover,.stars label:hover~label,.stars input:checked~label{color:#f5a623}
+
+/* Search/Filter bar */
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center}
+.toolbar input,.toolbar select{padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;outline:none}
+.toolbar input:focus,.toolbar select:focus{border-color:var(--accent)}
+
+/* Tag */
+.tag{display:inline-block;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:500;margin:1px 2px;background:rgba(91,76,219,.08);color:var(--accent)}
+
+/* Report */
+.report-box{background:var(--bg);border-radius:8px;padding:16px;font-size:12px;line-height:1.7;white-space:pre-wrap;user-select:all;cursor:text}
+
+/* Talent Profile Card */
+.profile-card{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:600px){.profile-card{grid-template-columns:1fr}}
+.profile-section{background:var(--bg);border-radius:8px;padding:14px}
+.profile-section h4{font-size:12px;font-weight:600;color:var(--accent);margin-bottom:8px}
+
+/* Cloud Sync Page */
+.cloud-config{background:var(--bg);border-radius:10px;padding:20px;margin-bottom:16px}
+.cloud-config textarea{width:100%;min-height:150px;padding:12px;border:1px solid var(--border);border-radius:8px;font-size:12px;font-family:monospace;resize:vertical}
+.cloud-guide{background:#fff;border:1px solid var(--border);border-radius:10px;padding:20px}
+.cloud-guide h4{font-size:14px;font-weight:600;margin-bottom:12px;color:var(--accent)}
+.cloud-guide ol{margin:0;padding-left:20px;font-size:13px;line-height:2}
+.cloud-guide li{margin-bottom:4px}
+.cloud-guide code{background:#f0f1ff;padding:2px 6px;border-radius:4px;font-size:12px;color:var(--accent)}
+.cloud-status-box{padding:24px;text-align:center;border-radius:10px;margin-bottom:16px}
+.cloud-status-box.connected{background:rgba(0,168,132,.08);border:1px solid rgba(0,168,132,.2)}
+.cloud-status-box.disconnected{background:var(--bg);border:1px solid var(--border)}
+.cloud-status-icon{font-size:48px;margin-bottom:12px}
+.cloud-actions{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+
+/* Print */
+@media print{.nav,.toolbar,.btn,.modal-bg{display:none!important}.page{display:block!important;padding:10px!important}}
+</style>
+</head>
+<body>
+
+<div class="nav">
+  <div class="nav-brand">🎓 Havas FTP</div>
+  <div class="nav-tab active" data-page="dashboard">Dashboard</div>
+  <div class="nav-tab" data-page="interns">实习生库</div>
+  <div class="nav-tab" data-page="eval">Manager评价</div>
+  <div class="nav-tab" data-page="exit">离职反馈</div>
+  <div class="nav-tab" data-page="talent">人才池</div>
+  <div class="nav-tab" data-page="ai-profile">AI画像</div>
+  <div class="nav-tab" data-page="ceo">CEO看板</div>
+  <div class="nav-tab" data-page="cloudsync">⚙️ 云同步</div>
+  <div class="nav-sync offline" id="sync-indicator">⚠️ 未连接</div>
+</div>
+
+<!-- PAGE: Dashboard -->
+<div class="page active" id="pg-dashboard">
+  <h2 style="font-size:18px;font-weight:700;margin-bottom:16px">📊 Dashboard</h2>
+  <div class="stats-grid" id="dash-stats"></div>
+  <div class="charts-row">
+    <div class="chart-wrap"><div class="card-title">🏢 BU分布</div><canvas id="chart-bu"></canvas></div>
+    <div class="chart-wrap"><div class="card-title">🎓 毕业时间分布</div><canvas id="chart-grad"></canvas></div>
+  </div>
+  <div class="charts-row">
+    <div class="chart-wrap"><div class="card-title">🤖 AI工具使用情况</div><canvas id="chart-ai"></canvas></div>
+    <div class="chart-wrap"><div class="card-title">💼 职业方向分布</div><canvas id="chart-career"></canvas></div>
+  </div>
+</div>
+
+<!-- PAGE: Interns -->
+<div class="page" id="pg-interns">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+    <h2 style="font-size:18px;font-weight:700">👥 实习生信息库</h2>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-s btn-sm" onclick="exportCSV('interns')">📥 导出Excel</button>
+      <button class="btn btn-s btn-sm" onclick="document.getElementById('import-file').click()">📤 导入Excel</button>
+      <input type="file" id="import-file" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleImport(event)">
+      <button class="btn btn-s btn-sm" onclick="downloadTemplate()">📄 下载模板</button>
+      <button class="btn btn-p" onclick="openInternModal()">+ 新增</button>
+    </div>
+  </div>
+  <div class="toolbar">
+    <input type="text" id="int-search" placeholder="搜索姓名/手机号/学校/专业..." oninput="renderInterns()" style="width:220px">
+    <select id="int-bu" onchange="renderInterns()"><option value="">全部BU</option><option>Havas Creative</option><option>Havas Media</option><option>Havas Health</option><option>Havas Events</option><option>BETC</option></select>
+    <select id="int-status" onchange="renderInterns()"><option value="">全部状态</option><option>在职</option><option>已离职</option><option>已进入人才库</option><option>已转正</option></select>
+  </div>
+  <div class="card"><div class="tbl-wrap"><table id="tbl-interns"></table></div></div>
+</div>
+
+<!-- PAGE: Manager Eval -->
+<div class="page" id="pg-eval">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+    <h2 style="font-size:18px;font-weight:700">⭐ Manager评价</h2>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-s btn-sm" onclick="importResult('eval')">📥 导入评价</button>
+      <button class="btn btn-p" onclick="openEvalModal()">+ 新增评价</button>
+    </div>
+  </div>
+  <div class="card"><div class="tbl-wrap"><table id="tbl-eval"></table></div></div>
+</div>
+
+<!-- PAGE: Exit Feedback -->
+<div class="page" id="pg-exit">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+    <h2 style="font-size:18px;font-weight:700">📝 离职反馈</h2>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-s btn-sm" onclick="importResult('exit')">📥 导入反馈</button>
+      <button class="btn btn-p" onclick="openExitModal()">+ 新增反馈</button>
+    </div>
+  </div>
+  <div class="card"><div class="tbl-wrap"><table id="tbl-exit"></table></div></div>
+</div>
+
+<!-- PAGE: Talent Pool -->
+<div class="page" id="pg-talent">
+  <h2 style="font-size:18px;font-weight:700;margin-bottom:14px">🏆 Future Talent Pool</h2>
+  <div class="toolbar">
+    <input type="text" id="tp-search" placeholder="搜索姓名/手机号/学校/专业..." oninput="renderTalent()" style="width:220px">
+    <select id="tp-tier" onchange="renderTalent()"><option value="">全部层级</option><option>⭐ Future Star</option><option>🔵 Future Talent</option><option>⚪ General Pool</option><option>🚫 Do Not Rehire</option></select>
+    <select id="tp-grad" onchange="renderTalent()"><option value="">毕业时间</option><option>2026</option><option>2027</option><option>2028</option><option>2029</option></select>
+    <select id="tp-bu" onchange="renderTalent()"><option value="">全部BU</option><option>Havas Creative</option><option>Havas Media</option><option>Havas Health</option><option>Havas Events</option><option>BETC</option></select>
+  </div>
+  <div id="talent-cards"></div>
+</div>
+
+<!-- PAGE: AI Profile -->
+<div class="page" id="pg-ai-profile">
+  <h2 style="font-size:18px;font-weight:700;margin-bottom:14px">🤖 AI人才画像</h2>
+  <div class="toolbar">
+    <select id="ap-intern" onchange="renderAIProfile()"><option value="">选择实习生查看画像</option></select>
+  </div>
+  <div id="ai-profile-content"></div>
+</div>
+
+<!-- PAGE: CEO Dashboard -->
+<div class="page" id="pg-ceo">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+    <h2 style="font-size:18px;font-weight:700">👔 CEO Dashboard</h2>
+    <button class="btn btn-p" onclick="generateCEOReport()">📋 生成月报</button>
+  </div>
+  <div class="stats-grid" id="ceo-stats"></div>
+  <div class="charts-row">
+    <div class="chart-wrap"><div class="card-title">🏢 各BU人才分布</div><canvas id="chart-ceo-bu"></canvas></div>
+    <div class="chart-wrap"><div class="card-title">🎓 毕业时间分布</div><canvas id="chart-ceo-grad"></canvas></div>
+  </div>
+  <div class="charts-row">
+    <div class="chart-wrap"><div class="card-title">🤖 AI能力评分分布</div><canvas id="chart-ceo-ai"></canvas></div>
+    <div class="chart-wrap"><div class="card-title">💼 职业方向偏好</div><canvas id="chart-ceo-career"></canvas></div>
+  </div>
+  <div class="card" id="ceo-top-section">
+    <div class="card-title">🌟 Top Schools来源</div>
+    <div id="ceo-top-schools"></div>
+  </div>
+  <div id="ceo-report-area" style="display:none;margin-top:16px">
+    <div class="card">
+      <div class="card-title">📋 CEO月报</div>
+      <div class="report-box" id="ceo-report-text"></div>
+      <div style="margin-top:10px;display:flex;gap:8px">
+        <button class="btn btn-s btn-sm" onclick="copyReport()">📋 复制</button>
+        <button class="btn btn-s btn-sm" onclick="window.print()">🖨️ 打印/PDF</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE: Cloud Sync -->
+<div class="page" id="pg-cloudsync">
+  <h2 style="font-size:18px;font-weight:700;margin-bottom:16px">☁️ 云同步设置</h2>
+  
+  <!-- Connection Status -->
+  <div class="cloud-status-box" id="cloud-status-box">
+    <div class="cloud-status-icon" id="cloud-status-icon">🔌</div>
+    <div style="font-size:16px;font-weight:600;margin-bottom:4px" id="cloud-status-title">未连接云同步</div>
+    <div style="font-size:12px;color:var(--text2)" id="cloud-status-desc">输入 JSONBin API Key 即可开启跨设备数据同步</div>
+  </div>
+  
+  <!-- Config Area -->
+  <div class="card">
+    <div class="card-title">🔧 云同步配置 (JSONBin.io)</div>
+    <div class="fg">
+      <label>API Key *</label>
+      <input id="jsonbin-apikey" placeholder="$2a$10$..." style="font-family:monospace;font-size:12px">
+      <div style="font-size:11px;color:var(--text2);margin-top:4px">在 jsonbin.io 注册后，前往 API Keys 页面获取</div>
+    </div>
+    <div class="fg" style="margin-top:8px">
+      <label>Bin ID（可选，首次自动创建）</label>
+      <input id="jsonbin-binid" placeholder="留空自动创建新数据仓库">
+    </div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="btn btn-g" id="btn-connect" onclick="handleJSONBinConnect()">🔗 连接云同步</button>
+      <button class="btn btn-d" id="btn-disconnect" onclick="handleJSONBinDisconnect()" style="display:none">⛔ 断开连接</button>
+    </div>
+  </div>
+  
+  <!-- Sync Actions -->
+  <div class="card" id="sync-actions-card" style="display:none">
+    <div class="card-title">🔄 同步操作</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-p" onclick="handlePushToCloud()">📤 推送本地数据到云端</button>
+      <button class="btn btn-s" onclick="handlePullFromCloud()">📥 从云端拉取数据</button>
+      <button class="btn btn-s" onclick="handleForceSync()">🔄 强制全量同步</button>
+    </div>
+    <div id="sync-result" style="margin-top:12px;font-size:12px;display:none"></div>
+  </div>
+  
+  <!-- Guide -->
+  <div class="cloud-guide">
+    <h4>📖 如何获取 JSONBin API Key</h4>
+    <ol>
+      <li>访问 <a href="https://jsonbin.io/" target="_blank">jsonbin.io</a> 并注册账号（支持 Google 登录，免费）</li>
+      <li>注册后进入 <a href="https://jsonbin.io/app/api-keys" target="_blank">API Keys 页面</a></li>
+      <li>点击「Create API Key」，复制生成的 Key</li>
+      <li>将 Key 粘贴到上方输入框，点击「连接云同步」</li>
+      <li>系统会自动创建数据仓库并同步，无需其他配置 ✅</li>
+    </ol>
+    <div style="margin-top:16px;padding:12px;background:#e8f5e9;border-radius:8px;font-size:12px">
+      <strong>💡 为什么选择 JSONBin？</strong> Firebase 使用 Google 服务器，国内无法访问。JSONBin 是轻量级 JSON 存储服务，国内直连无障碍，免费额度每日 1 万次请求，完全够用。
+    </div>
+  </div>
+</div>
+
+<!-- Intern Modal -->
+<div class="modal-bg" id="modal-intern">
+  <div class="modal">
+    <div class="modal-head"><h3 id="mi-title">新增实习生</h3><button class="modal-close" onclick="closeModal('modal-intern')">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="mi-id">
+      <div class="fr3"><div class="fg"><label>姓名 *</label><input id="mi-name"></div><div class="fg"><label>手机号 *</label><input id="mi-phone" type="tel" placeholder="11位手机号" maxlength="11"></div><div class="fg"><label>学校</label><input id="mi-school"></div></div>
+      <div class="fr"><div class="fg"><label>专业</label><input id="mi-major"></div><div class="fg"><label>毕业时间</label><select id="mi-grad"><option value="">请选择</option><option>2026</option><option>2027</option><option>2028</option><option>2029</option><option>2030</option></select></div></div>
+      <div class="fr"><div class="fg"><label>所属BU *</label><select id="mi-bu"><option value="">请选择</option><option>Havas Creative</option><option>Havas Media</option><option>Havas Health</option><option>Havas Events</option><option>BETC</option></select></div><div class="fg"><label>实习岗位</label><input id="mi-role"></div></div>
+      <div class="fr"><div class="fg"><label>Mentor</label><input id="mi-mentor"></div><div class="fg"><label>当前状态</label><select id="mi-status"><option>在职</option><option>已离职</option><option>已进入人才库</option><option>已转正</option></select></div></div>
+      <div class="fr"><div class="fg"><label>入职日期</label><input type="date" id="mi-start"></div><div class="fg"><label>离职日期</label><input type="date" id="mi-end"></div></div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-s" onclick="closeModal('modal-intern')">取消</button><button class="btn btn-p" onclick="saveIntern()">保存</button></div>
+  </div>
+</div>
+
+<!-- Eval Modal -->
+<div class="modal-bg" id="modal-eval">
+  <div class="modal">
+    <div class="modal-head"><h3>Manager评价</h3><button class="modal-close" onclick="closeModal('modal-eval')">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="me-id">
+      <div class="fg"><label>选择实习生 *</label><select id="me-intern"></select></div>
+      <div class="fr3">
+        <div class="fg"><label>工作表现</label><select id="me-work"><option value="">-</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></div>
+        <div class="fg"><label>学习能力</label><select id="me-learn"><option value="">-</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></div>
+        <div class="fg"><label>主动性</label><select id="me-proactive"><option value="">-</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></div>
+      </div>
+      <div class="fr3">
+        <div class="fg"><label>AI能力</label><select id="me-ai"><option value="">-</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></div>
+        <div class="fg"><label>沟通协作</label><select id="me-comm"><option value="">-</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></div>
+        <div class="fg"><label>韧性</label><select id="me-resilience"><option value="">-</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></div>
+      </div>
+      <div class="fr3">
+        <div class="fg"><label>综合评价</label><select id="me-overall"><option value="">-</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></div>
+        <div class="fg"><label>英语能力</label><select id="me-eng"><option value="">-</option><option>Fluent</option><option>Good</option><option>Basic</option></select></div>
+        <div class="fg"><label>其他语言</label><input id="me-lang" placeholder="如：日语N1、法语B2"></div>
+      </div>
+      <div class="fr">
+        <div class="fg"><label>回聘推荐</label><select id="me-rehire"><option value="">-</option><option>强烈推荐</option><option>推荐</option><option>一般</option><option>不推荐</option></select></div>
+        <div class="fg"><label>高潜人才</label><select id="me-potential"><option value="">-</option><option>Yes</option><option>No</option></select></div>
+      </div>
+      <div class="fg"><label>Manager评语（300字内）</label><textarea id="me-comment" maxlength="300"></textarea></div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-s" onclick="closeModal('modal-eval')">取消</button><button class="btn btn-p" onclick="saveEval()">保存</button></div>
+  </div>
+</div>
+
+<!-- Exit Modal -->
+<div class="modal-bg" id="modal-exit">
+  <div class="modal">
+    <div class="modal-head"><h3>实习生离职反馈</h3><button class="modal-close" onclick="closeModal('modal-exit')">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="mx-id">
+      <div class="fg"><label>选择实习生 *</label><select id="mx-intern"></select></div>
+      <div class="fg"><label>Q1: 毕业时加入Havas的可能性（1-10分）</label><select id="mx-likelihood"><option value="">-</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option></select></div>
+      <div class="fg"><label>Q2: 毕业后最希望发展的职业方向</label><select id="mx-career"><option value="">-</option><option>Creative（创意）</option><option>Strategy（策略）</option><option>Account（客户服务）</option><option>Media（媒介）</option><option>Health Communication（医疗传播）</option><option>Events（活动营销）</option><option>Data & Analytics（数据分析）</option><option>Social & Content（内容营销）</option><option>PR（公关传播）</option><option>AI / Technology（AI与技术）</option><option>Other（其他）</option></select></div>
+      <div class="fg"><label>Q3: 未来3-5年职业规划（50-300字）</label><textarea id="mx-plan" minlength="50" maxlength="300"></textarea></div>
+      <div class="fg"><label>Q4: 在Havas实习期间最大的收获（50-300字）</label><textarea id="mx-gain" minlength="50" maxlength="300"></textarea></div>
+      <div class="fg"><label>Q5: 自己最大的优势（50-300字）</label><textarea id="mx-strength" minlength="50" maxlength="300"></textarea></div>
+      <div class="fg"><label>Q6: 最常使用的AI工具（多选）</label>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px" id="mx-aitools">
+          <label style="font-size:12px;display:flex;align-items:center;gap:3px"><input type="checkbox" value="ChatGPT"> ChatGPT</label>
+          <label style="font-size:12px;display:flex;align-items:center;gap:3px"><input type="checkbox" value="Claude"> Claude</label>
+          <label style="font-size:12px;display:flex;align-items:center;gap:3px"><input type="checkbox" value="Gemini"> Gemini</label>
+          <label style="font-size:12px;display:flex;align-items:center;gap:3px"><input type="checkbox" value="Cursor"> Cursor</label>
+          <label style="font-size:12px;display:flex;align-items:center;gap:3px"><input type="checkbox" value="Midjourney"> Midjourney</label>
+          <label style="font-size:12px;display:flex;align-items:center;gap:3px"><input type="checkbox" value="Runway"> Runway</label>
+          <label style="font-size:12px;display:flex;align-items:center;gap:3px"><input type="checkbox" value="Notion AI"> Notion AI</label>
+          <label style="font-size:12px;display:flex;align-items:center;gap:3px"><input type="checkbox" value="Perplexity"> Perplexity</label>
+          <label style="font-size:12px;display:flex;align-items:center;gap:3px"><input type="checkbox" value="其他"> 其他</label>
+        </div>
+      </div>
+      <div class="fg"><label>Q7: 是否愿意进入Havas Future Talent Pool？</label><select id="mx-pool"><option value="">-</option><option>Yes</option><option>No</option></select></div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-s" onclick="closeModal('modal-exit')">取消</button><button class="btn btn-p" onclick="saveExit()">保存</button></div>
+  </div>
+</div>
+
+<!-- Report Modal -->
+<div class="modal-bg" id="modal-report">
+  <div class="modal" style="width:700px">
+    <div class="modal-head"><h3>📋 CEO月报</h3><button class="modal-close" onclick="closeModal('modal-report')">✕</button></div>
+    <div class="modal-body"><div class="report-box" id="report-text"></div></div>
+    <div class="modal-foot"><button class="btn btn-s" onclick="copyReport()">📋 复制</button><button class="btn btn-s" onclick="window.print()">🖨️ 打印/PDF</button><button class="btn btn-s" onclick="closeModal('modal-report')">关闭</button></div>
+  </div>
+</div>
+
+<!-- Import Preview Modal -->
+<div class="modal-bg" id="modal-import">
+  <div class="modal" style="width:800px">
+    <div class="modal-head"><h3>📤 导入预览</h3><button class="modal-close" onclick="closeModal('modal-import')">✕</button></div>
+    <div class="modal-body">
+      <div id="import-summary" style="margin-bottom:12px"></div>
+      <div class="tbl-wrap" style="max-height:400px;overflow-y:auto"><table id="tbl-import-preview"></table></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-s" onclick="closeModal('modal-import')">取消</button>
+      <button class="btn btn-p" onclick="confirmImport()">✅ 确认导入</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== JSONBin Cloud Sync System =====
+// Replaces Firebase - works in China, no SDK needed, pure REST API
+const JSONBIN_API_BASE = 'https://api.jsonbin.io/v3';
+const JSONBIN_CONFIG_KEY = 'ftp_jsonbin_config';
+
+let jsonBinConfig = null; // { apiKey, binId }
+let isCloudConnected = false;
+let syncPollTimer = null;
+let syncIndicator = document.getElementById('sync-indicator');
+
+function updateSyncIndicator(status, message) {
+  syncIndicator.className = 'nav-sync ' + status;
+  syncIndicator.textContent = message;
+}
+
+function updateCloudUI(connected) {
+  const statusBox = document.getElementById('cloud-status-box');
+  const statusIcon = document.getElementById('cloud-status-icon');
+  const statusTitle = document.getElementById('cloud-status-title');
+  const statusDesc = document.getElementById('cloud-status-desc');
+  const btnConnect = document.getElementById('btn-connect');
+  const btnDisconnect = document.getElementById('btn-disconnect');
+  const syncActions = document.getElementById('sync-actions-card');
+  
+  if (connected) {
+    statusBox.className = 'cloud-status-box connected';
+    statusIcon.textContent = '✅';
+    statusTitle.textContent = '已连接云同步';
+    statusDesc.textContent = '数据自动同步至 JSONBin（每30秒刷新）';
+    btnConnect.style.display = 'none';
+    btnDisconnect.style.display = 'inline-flex';
+    syncActions.style.display = 'block';
+    updateSyncIndicator('synced', '☁️ 已同步');
+  } else {
+    statusBox.className = 'cloud-status-box disconnected';
+    statusIcon.textContent = '🔌';
+    statusTitle.textContent = '未连接云同步';
+    statusDesc.textContent = '输入 JSONBin API Key 即可开启跨设备数据同步';
+    btnConnect.style.display = 'inline-flex';
+    btnDisconnect.style.display = 'none';
+    syncActions.style.display = 'none';
+    updateSyncIndicator('offline', '⚠️ 离线');
+  }
+}
+
+function showSyncResult(message, type) {
+  const resultDiv = document.getElementById('sync-result');
+  const colors = { success: 'var(--green)', error: 'var(--red)', info: 'var(--blue)' };
+  resultDiv.style.color = colors[type] || 'inherit';
+  resultDiv.textContent = message;
+  resultDiv.style.display = 'block';
+  setTimeout(() => { resultDiv.style.display = 'none'; }, 5000);
+}
+
+// Initialize JSONBin connection
+async function initJSONBin(apiKey, binId) {
+  if (!apiKey) throw new Error('请输入 API Key');
+  
+  jsonBinConfig = { apiKey, binId: binId || null };
+  
+  // If no bin ID, create one automatically
+  if (!jsonBinConfig.binId) {
+    console.log('JSONBin: Creating new bin...');
+    const res = await fetch(JSONBIN_API_BASE + '/b', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Master-Key': apiKey,
+        'X-Bin-Name': 'Havas-FTP',
+        'X-Bin-Private': 'true'
+      },
+      body: JSON.stringify({
+        interns: [],
+        evals: [],
+        exits: [],
+        lastSyncedAt: new Date().toISOString()
+      })
+    });
+    
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      throw new Error('创建数据仓库失败 (' + res.status + '): ' + errText);
+    }
+    const data = await res.json();
+    jsonBinConfig.binId = data.metadata.id;
+    console.log('JSONBin: Bin created, id=', jsonBinConfig.binId);
+  }
+  
+  // Test read access
+  const testRes = await fetch(JSONBIN_API_BASE + '/b/' + jsonBinConfig.binId + '/latest', {
+    headers: { 'X-Master-Key': apiKey }
+  });
+  if (!testRes.ok) {
+    throw new Error('读取数据失败 (' + testRes.status + ')，请检查 API Key 和 Bin ID 是否正确');
+  }
+  
+  // Save config to localStorage
+  localStorage.setItem(JSONBIN_CONFIG_KEY, JSON.stringify(jsonBinConfig));
+  isCloudConnected = true;
+  return true;
+}
+
+function disconnectJSONBin() {
+  if (syncPollTimer) {
+    clearInterval(syncPollTimer);
+    syncPollTimer = null;
+  }
+  jsonBinConfig = null;
+  isCloudConnected = false;
+  localStorage.removeItem(JSONBIN_CONFIG_KEY);
+  updateCloudUI(false);
+  updateSyncIndicator('offline', '⚠️ 离线');
+}
+
+async function handleJSONBinConnect() {
+  const apiKey = document.getElementById('jsonbin-apikey').value.trim();
+  const binId = document.getElementById('jsonbin-binid').value.trim() || null;
+  
+  if (!apiKey) {
+    alert('请输入 JSONBin API Key');
+    return;
+  }
+  
+  updateSyncIndicator('syncing', '⏳ 连接中...');
+  
+  try {
+    await initJSONBin(apiKey, binId);
+    updateCloudUI(true);
+    
+    // Show bin ID for cross-device setup
+    document.getElementById('jsonbin-binid').value = jsonBinConfig.binId;
+    
+    // Start auto-polling
+    startPolling();
+    
+    // Initial pull
+    await handlePullFromCloud(true);
+    
+    console.log('JSONBin connected successfully');
+    updateSyncIndicator('synced', '☁️ 已同步');
+  } catch (err) {
+    console.error('JSONBin connection failed:', err);
+    updateSyncIndicator('error', '❌ ' + err.message);
+    alert('连接失败：' + err.message);
+  }
+}
+
+function handleJSONBinDisconnect() {
+  if (confirm('确定要断开云同步吗？本地数据不受影响。')) {
+    disconnectJSONBin();
+    alert('已断开连接');
+  }
+}
+
+// Merge cloud data with local data (same logic as before)
+function mergeCloudData(cloudData) {
+  if (!cloudData) return false;
+  
+  let changed = false;
+  const now = new Date().toISOString();
+  
+  // Merge interns
+  if (cloudData.interns && Array.isArray(cloudData.interns)) {
+    const localMap = new Map(interns.map(x => [x.id, x]));
+    cloudData.interns.forEach(cloudItem => {
+      const localItem = localMap.get(cloudItem.id);
+      if (!localItem) {
+        interns.push({...cloudItem, updatedAt: cloudItem.updatedAt || now});
+        changed = true;
+      } else {
+        const cloudTime = new Date(cloudItem.updatedAt || 0).getTime();
+        const localTime = new Date(localItem.updatedAt || 0).getTime();
+        if (cloudTime > localTime) {
+          Object.assign(localItem, cloudItem);
+          changed = true;
+        }
+      }
+    });
+  }
+  
+  // Merge evals
+  if (cloudData.evals && Array.isArray(cloudData.evals)) {
+    const localMap = new Map(evals.map(x => [x.id, x]));
+    cloudData.evals.forEach(cloudItem => {
+      const localItem = localMap.get(cloudItem.id);
+      if (!localItem) {
+        evals.push({...cloudItem, updatedAt: cloudItem.updatedAt || now});
+        changed = true;
+      } else {
+        const cloudTime = new Date(cloudItem.updatedAt || 0).getTime();
+        const localTime = new Date(localItem.updatedAt || 0).getTime();
+        if (cloudTime > localTime) {
+          Object.assign(localItem, cloudItem);
+          changed = true;
+        }
+      }
+    });
+  }
+  
+  // Merge exits
+  if (cloudData.exits && Array.isArray(cloudData.exits)) {
+    const localMap = new Map(exits.map(x => [x.id, x]));
+    cloudData.exits.forEach(cloudItem => {
+      const localItem = localMap.get(cloudItem.id);
+      if (!localItem) {
+        exits.push({...cloudItem, updatedAt: cloudItem.updatedAt || now});
+        changed = true;
+      } else {
+        const cloudTime = new Date(cloudItem.updatedAt || 0).getTime();
+        const localTime = new Date(localItem.updatedAt || 0).getTime();
+        if (cloudTime > localTime) {
+          Object.assign(localItem, cloudItem);
+          changed = true;
+        }
+      }
+    });
+  }
+  
+  if (changed) {
+    // Save without triggering cloud push (to avoid infinite loop)
+    localStorage.setItem('ftp_interns', JSON.stringify(interns));
+    localStorage.setItem('ftp_evals', JSON.stringify(evals));
+    localStorage.setItem('ftp_exits', JSON.stringify(exits));
+    if (typeof refresh === 'function') refresh();
+  }
+  
+  return changed;
+}
+
+async function handlePullFromCloud(silent = false) {
+  if (!jsonBinConfig || !jsonBinConfig.binId) {
+    if (!silent) alert('请先连接云同步');
+    return;
+  }
+  
+  updateSyncIndicator('syncing', '⏳ 拉取中...');
+  
+  try {
+    const res = await fetch(JSONBIN_API_BASE + '/b/' + jsonBinConfig.binId + '/latest', {
+      headers: { 'X-Master-Key': jsonBinConfig.apiKey }
+    });
+    
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    const cloudData = data.record;
+    
+    if (cloudData && (cloudData.interns || cloudData.evals || cloudData.exits)) {
+      mergeCloudData(cloudData);
+      if (!silent) showSyncResult('✅ 已从云端拉取最新数据', 'success');
+    } else {
+      // No cloud data yet, push local data
+      await handlePushToCloud(true);
+      if (!silent) showSyncResult('云端暂无数据，已推送本地数据', 'info');
+    }
+    
+    updateSyncIndicator('synced', '☁️ 已同步');
+  } catch (err) {
+    console.error('Pull failed:', err);
+    updateSyncIndicator('error', '⚠️ 拉取失败');
+    if (!silent) showSyncResult('拉取失败：' + err.message, 'error');
+  }
+}
+
+async function handlePushToCloud(silent = false) {
+  if (!jsonBinConfig || !jsonBinConfig.binId) {
+    if (!silent) alert('请先连接云同步');
+    return;
+  }
+  
+  updateSyncIndicator('syncing', '⏳ 推送中...');
+  
+  try {
+    const data = {
+      interns: interns.map(x => ({...x, updatedAt: x.updatedAt || new Date().toISOString()})),
+      evals: evals.map(x => ({...x, updatedAt: x.updatedAt || new Date().toISOString()})),
+      exits: exits.map(x => ({...x, updatedAt: x.updatedAt || new Date().toISOString()})),
+      lastSyncedAt: new Date().toISOString()
+    };
+    
+    const res = await fetch(JSONBIN_API_BASE + '/b/' + jsonBinConfig.binId, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Master-Key': jsonBinConfig.apiKey,
+        'X-Bin-Versioning': 'false'
+      },
+      body: JSON.stringify(data)
+    });
+    
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    
+    updateSyncIndicator('synced', '☁️ 已同步');
+    if (!silent) showSyncResult('✅ 已推送本地数据到云端', 'success');
+  } catch (err) {
+    console.error('Push failed:', err);
+    updateSyncIndicator('error', '⚠️ 推送失败');
+    if (!silent) showSyncResult('推送失败：' + err.message, 'error');
+  }
+}
+
+async function handleForceSync() {
+  if (!jsonBinConfig || !jsonBinConfig.binId) {
+    alert('请先连接云同步');
+    return;
+  }
+  
+  if (!confirm('强制同步将用本地数据覆盖云端数据。确定继续吗？')) return;
+  
+  updateSyncIndicator('syncing', '⏳ 强制同步中...');
+  
+  try {
+    const data = {
+      interns: interns.map(x => ({...x, updatedAt: new Date().toISOString()})),
+      evals: evals.map(x => ({...x, updatedAt: new Date().toISOString()})),
+      exits: exits.map(x => ({...x, updatedAt: new Date().toISOString()})),
+      lastSyncedAt: new Date().toISOString()
+    };
+    
+    const res = await fetch(JSONBIN_API_BASE + '/b/' + jsonBinConfig.binId, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Master-Key': jsonBinConfig.apiKey,
+        'X-Bin-Versioning': 'false'
+      },
+      body: JSON.stringify(data)
+    });
+    
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    
+    updateSyncIndicator('synced', '☁️ 已同步');
+    showSyncResult('✅ 强制同步完成', 'success');
+  } catch (err) {
+    console.error('Force sync failed:', err);
+    updateSyncIndicator('error', '⚠️ 同步失败');
+    showSyncResult('强制同步失败：' + err.message, 'error');
+  }
+}
+
+// Auto-polling every 30 seconds
+function startPolling() {
+  if (syncPollTimer) clearInterval(syncPollTimer);
+  syncPollTimer = setInterval(() => {
+    if (isCloudConnected && jsonBinConfig) {
+      handlePullFromCloud(true).catch(console.error);
+    }
+  }, 30000);
+}
+
+// Auto-initialize JSONBin if config exists
+function autoInitJSONBin() {
+  const saved = localStorage.getItem(JSONBIN_CONFIG_KEY);
+  if (!saved) {
+    updateSyncIndicator('offline', '⚠️ 离线');
+    updateCloudUI(false);
+    return;
+  }
+  
+  try {
+    const config = JSON.parse(saved);
+    if (!config.apiKey) throw new Error('No API Key');
+    
+    // Fill in UI fields
+    if (document.getElementById('jsonbin-apikey')) {
+      document.getElementById('jsonbin-apikey').value = config.apiKey;
+    }
+    if (document.getElementById('jsonbin-binid') && config.binId) {
+      document.getElementById('jsonbin-binid').value = config.binId;
+    }
+    
+    console.log('JSONBin: Auto-connecting with saved config...');
+    updateSyncIndicator('syncing', '⏳ 连接中...');
+    
+    initJSONBin(config.apiKey, config.binId)
+      .then(() => {
+        updateCloudUI(true);
+        // Update bin ID field if auto-created
+        if (document.getElementById('jsonbin-binid') && jsonBinConfig.binId) {
+          document.getElementById('jsonbin-binid').value = jsonBinConfig.binId;
+        }
+        startPolling();
+        return handlePullFromCloud(true);
+      })
+      .then(() => {
+        console.log('JSONBin auto-connected successfully');
+        updateSyncIndicator('synced', '☁️ 已同步');
+      })
+      .catch(err => {
+        console.error('JSONBin auto-init failed:', err);
+        updateSyncIndicator('error', '❌ ' + err.message);
+        updateCloudUI(false);
+      });
+  } catch(e) {
+    console.error('JSONBin config parse error:', e);
+    updateSyncIndicator('offline', '⚠️ 离线');
+    updateCloudUI(false);
+  }
+}
+
+// ===== Data Layer =====
+const SK='ftp_';
+function LD(k){try{return JSON.parse(localStorage.getItem(SK+k))||[]}catch{return[]}}
+function SD(k,d){localStorage.setItem(SK+k,JSON.stringify(d)); if(isCloudConnected){handlePushToCloud(true).catch(console.error)}}
+let interns=LD('interns'), evals=LD('evals'), exits=LD('exits');
+
+// ===== Navigation =====
+document.querySelectorAll('.nav-tab').forEach(t=>{
+  t.onclick=()=>{
+    document.querySelectorAll('.nav-tab').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById('pg-'+t.dataset.page).classList.add('active');
+    refresh();
+  };
+});
+
+// ===== Modal helpers =====
+function openModal(id){document.getElementById(id).classList.add('show')}
+function closeModal(id){document.getElementById(id).classList.remove('show')}
+
+// ===== Intern CRUD =====
+function openInternModal(id){
+  const m=document.getElementById('modal-intern');
+  if(id){
+    const p=interns.find(x=>x.id===id);
+    document.getElementById('mi-title').textContent='编辑实习生';
+    document.getElementById('mi-id').value=id;
+    document.getElementById('mi-name').value=p.name||'';
+    document.getElementById('mi-phone').value=p.phone||'';
+    document.getElementById('mi-school').value=p.school||'';
+    document.getElementById('mi-major').value=p.major||'';
+    document.getElementById('mi-grad').value=p.grad||'';
+    document.getElementById('mi-bu').value=p.bu||'';
+    document.getElementById('mi-role').value=p.role||'';
+    document.getElementById('mi-mentor').value=p.mentor||'';
+    document.getElementById('mi-status').value=p.status||'在职';
+    document.getElementById('mi-start').value=p.start||'';
+    document.getElementById('mi-end').value=p.end||'';
+  }else{
+    document.getElementById('mi-title').textContent='新增实习生';
+    document.getElementById('mi-id').value='';
+    ['mi-name','mi-phone','mi-school','mi-major','mi-grad','mi-bu','mi-role','mi-mentor','mi-start','mi-end'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('mi-status').value='在职';
+  }
+  openModal('modal-intern');
+}
+
+function saveIntern(){
+  const id=document.getElementById('mi-id').value;
+  const name=document.getElementById('mi-name').value.trim();
+  const phone=document.getElementById('mi-phone').value.trim();
+  const bu=document.getElementById('mi-bu').value;
+  if(!name||!phone||!bu){alert('请填写姓名、手机号和BU');return}
+  const now=new Date().toISOString();
+  if(id){
+    const p=interns.find(x=>x.id==id);
+    if(p){
+      ['name','phone','school','major','grad','bu','role','mentor','status','start','end'].forEach(k=>p[k]=document.getElementById('mi-'+k).value);
+      p.updatedAt=now;
+    }
+  }else{
+    interns.push({
+      id:Date.now()+Math.random()*10000|0,
+      name,phone,
+      school:document.getElementById('mi-school').value,
+      major:document.getElementById('mi-major').value,
+      grad:document.getElementById('mi-grad').value,
+      bu,role:document.getElementById('mi-role').value,
+      mentor:document.getElementById('mi-mentor').value,
+      status:document.getElementById('mi-status').value,
+      start:document.getElementById('mi-start').value,
+      end:document.getElementById('mi-end').value,
+      updatedAt:now
+    });
+  }
+  SD('interns',interns);
+  closeModal('modal-intern');
+  refresh();
+}
+
+function delIntern(id){
+  if(!confirm('确定删除该实习生？'))return;
+  interns=interns.filter(x=>x.id!==id);
+  evals=evals.filter(x=>x.internId!==id);
+  exits=exits.filter(x=>x.internId!==id);
+  SD('interns',interns);SD('evals',evals);SD('exits',exits);
+  refresh();
+}
+
+// ===== Eval CRUD =====
+function openEvalModal(id){
+  populateInternSelect('me-intern');
+  if(id){
+    const e=evals.find(x=>x.id===id);
+    document.getElementById('me-id').value=id;
+    document.getElementById('me-intern').value=e.internId||'';
+    ['work','learn','proactive','ai','comm','resilience','overall','eng','lang','rehire','potential'].forEach(k=>document.getElementById('me-'+k).value=e[k]||'');
+    document.getElementById('me-comment').value=e.comment||'';
+  }else{
+    document.getElementById('me-id').value='';
+    ['work','learn','proactive','ai','comm','resilience','overall','eng','lang','rehire','potential'].forEach(k=>document.getElementById('me-'+k).value='');
+    document.getElementById('me-comment').value='';
+  }
+  openModal('modal-eval');
+}
+
+function saveEval(){
+  const id=document.getElementById('me-id').value;
+  const internId=+document.getElementById('me-intern').value;
+  if(!internId){alert('请选择实习生');return}
+  const now=new Date().toISOString();
+  if(id){
+    const e=evals.find(x=>x.id==id);
+    if(e){
+      ['work','learn','proactive','ai','comm','resilience','overall','eng','lang','rehire','potential','comment'].forEach(k=>e[k]=document.getElementById('me-'+k).value);
+      e.updatedAt=now;
+    }
+  }else{
+    evals.push({
+      id:Date.now(),
+      internId,
+      work:document.getElementById('me-work').value,
+      learn:document.getElementById('me-learn').value,
+      proactive:document.getElementById('me-proactive').value,
+      ai:document.getElementById('me-ai').value,
+      comm:document.getElementById('me-comm').value,
+      resilience:document.getElementById('me-resilience').value,
+      overall:document.getElementById('me-overall').value,
+      eng:document.getElementById('me-eng').value,
+      lang:document.getElementById('me-lang').value,
+      rehire:document.getElementById('me-rehire').value,
+      potential:document.getElementById('me-potential').value,
+      comment:document.getElementById('me-comment').value,
+      date:new Date().toISOString().slice(0,10),
+      updatedAt:now
+    });
+  }
+  SD('evals',evals);
+  closeModal('modal-eval');
+  refresh();
+}
+
+function delEval(id){
+  if(!confirm('确定删除该评价？'))return;
+  evals=evals.filter(x=>x.id!==id);
+  SD('evals',evals);
+  refresh();
+}
+
+// ===== Exit CRUD =====
+function openExitModal(id){
+  populateInternSelect('mx-intern');
+  if(id){
+    const e=exits.find(x=>x.id===id);
+    document.getElementById('mx-id').value=id;
+    document.getElementById('mx-intern').value=e.internId||'';
+    document.getElementById('mx-likelihood').value=e.likelihood||'';
+    document.getElementById('mx-career').value=e.career||'';
+    document.getElementById('mx-plan').value=e.plan||'';
+    document.getElementById('mx-gain').value=e.gain||'';
+    document.getElementById('mx-strength').value=e.strength||'';
+    document.getElementById('mx-pool').value=e.pool||'';
+    if(e.aitools&&Array.isArray(e.aitools)){
+      document.querySelectorAll('#mx-aitools input').forEach(x=>x.checked=e.aitools.includes(x.value));
+    }else{
+      document.querySelectorAll('#mx-aitools input').forEach(x=>x.checked=false);
+    }
+  }else{
+    document.getElementById('mx-id').value='';
+    ['likelihood','career','plan','gain','strength','pool'].forEach(k=>document.getElementById('mx-'+k).value='');
+    document.querySelectorAll('#mx-aitools input').forEach(x=>x.checked=false);
+  }
+  openModal('modal-exit');
+}
+
+function saveExit(){
+  const id=document.getElementById('mx-id').value;
+  const internId=+document.getElementById('mx-intern').value;
+  if(!internId){alert('请选择实习生');return}
+  const aitools=[...document.querySelectorAll('#mx-aitools input:checked')].map(x=>x.value);
+  const now=new Date().toISOString();
+  if(id){
+    const e=exits.find(x=>x.id==id);
+    if(e){
+      ['likelihood','career','plan','gain','strength','pool'].forEach(k=>e[k]=document.getElementById('mx-'+k).value);
+      e.aitools=aitools;
+      e.updatedAt=now;
+    }
+  }else{
+    exits.push({
+      id:Date.now(),
+      internId,
+      likelihood:document.getElementById('mx-likelihood').value,
+      career:document.getElementById('mx-career').value,
+      plan:document.getElementById('mx-plan').value,
+      gain:document.getElementById('mx-gain').value,
+      strength:document.getElementById('mx-strength').value,
+      aitools,
+      pool:document.getElementById('mx-pool').value,
+      date:new Date().toISOString().slice(0,10),
+      updatedAt:now
+    });
+  }
+  SD('exits',exits);
+  closeModal('modal-exit');
+  refresh();
+}
+
+function delExit(id){
+  if(!confirm('确定删除该反馈？'))return;
+  exits=exits.filter(x=>x.id!==id);
+  SD('exits',exits);
+  refresh();
+}
+
+// ===== Dashboard =====
+function renderDashboard(){
+  const total=interns.length;
+  const active=interns.filter(x=>x.status==='在职').length;
+  const stars=interns.filter(x=>getTalentTier(x.id)==='Star').length;
+  const talents=interns.filter(x=>getTalentTier(x.id)==='Talent').length;
+  const aiAvg=evals.length?(evals.reduce((s,e)=>s+(+e.ai||0),0)/evals.filter(e=>e.ai).length).toFixed(1):'-';
+  document.getElementById('dash-stats').innerHTML=[
+    ['👥 总人数',total],['✅ 在职',active],['⭐ Future Star',stars],
+    ['🔵 Future Talent',talents],['🤖 AI均分',aiAvg],['📝 评价数',evals.length]
+  ].map(([l,n])=>`<div class="stat-box"><div class="num">${n}</div><div class="lbl">${l}</div></div>`).join('');
+  
+  const buLabels=['Havas Creative','Havas Media','Havas Health','Havas Events','BETC'];
+  const buCounts=buLabels.map(b=>interns.filter(x=>x.bu===b).length);
+  drawChart('chart-bu',buLabels,buCounts,'bar',{bg:'rgba(91,76,219,0.6)',border:'#5b4cdb'});
+  
+  const gradLabels=['2026','2027','2028','2029','2030'];
+  const gradCounts=gradLabels.map(g=>interns.filter(x=>x.grad===g).length);
+  drawChart('chart-grad',gradLabels,gradCounts,'bar',{bg:'rgba(0,168,132,0.6)',border:'#00a884'});
+  
+  const allTools={};
+  exits.forEach(e=>{if(e.aitools) e.aitools.forEach(t=>allTools[t]=(allTools[t]||0)+1)});
+  const toolLabels=Object.keys(allTools);
+  const toolCounts=toolLabels.map(t=>allTools[t]);
+  if(toolLabels.length)drawChart('chart-ai',toolLabels,toolCounts,'doughnut',{bg:toolLabels.map((_,i)=>['#5b4cdb','#00a884','#d4a017','#3d8bfd','#e5484d','#8b5cf6','#d45d22'][i%7])});
+  else drawChart('chart-ai',['暂无数据'],[1],'doughnut',{bg:['#e2e4ed']});
+  
+  const careerMap={};
+  exits.forEach(e=>{if(e.career)careerMap[e.career]=(careerMap[e.career]||0)+1});
+  const cLabels=Object.keys(careerMap);
+  const cCounts=cLabels.map(l=>careerMap[l]);
+  if(cLabels.length)drawChart('chart-career',cLabels,cCounts,'pie',{bg:cLabels.map((_,i)=>['#5b4cdb','#00a884','#d4a017','#3d8bfd','#e5484d','#8b5cf6','#d45d22'][i%7])});
+  else drawChart('chart-career',['暂无数据'],[1],'pie',{bg:['#e2e4ed']});
+}
+
+// ===== Intern Table =====
+function renderInterns(){
+  const kw=document.getElementById('int-search').value.toLowerCase();
+  const bu=document.getElementById('int-bu').value;
+  const status=document.getElementById('int-status').value;
+  let list=interns.filter(x=>{
+    if(kw&&!(x.name+''+x.phone+''+x.school+''+x.major).toLowerCase().includes(kw))return false;
+    if(bu&&x.bu!==bu)return false;
+    if(status&&x.status!==status)return false;
+    return true;
+  });
+  
+  document.getElementById('tbl-interns').innerHTML=`
+    <thead><tr><th>姓名</th><th>手机</th><th>学校</th><th>专业</th><th>毕业</th><th>BU</th><th>岗位</th><th>Mentor</th><th>状态</th><th>入职</th><th>操作</th></tr></thead>
+    <tbody>${list.length?list.map(p=>`<tr>
+      <td><b>${esc(p.name)}</b></td>
+      <td>${esc(p.phone)}</td>
+      <td>${esc(p.school)}</td>
+      <td>${esc(p.major)}</td>
+      <td>${esc(p.grad)}</td>
+      <td>${esc(p.bu)}</td>
+      <td>${esc(p.role)}</td>
+      <td>${esc(p.mentor)}</td>
+      <td>${statusBadge(p.status)}</td>
+      <td>${esc(p.start)}</td>
+      <td>
+        <button class="btn btn-s btn-sm" onclick="openInternModal(${p.id})">编辑</button>
+        <button class="btn btn-d btn-sm" onclick="delIntern(${p.id})">删除</button>
+        <button class="btn btn-s btn-sm" onclick="shareEvalLink(${p.id})" title="复制评价表链接给Manager">📤 评价</button>
+        <button class="btn btn-s btn-sm" onclick="shareExitLink(${p.id})" title="复制反馈表链接给实习生">📝 反馈</button>
+      </td>
+    </tr>`).join(''):'<tr><td colspan="11" style="text-align:center;padding:30px;color:var(--text2)">暂无数据</td></tr>'}
+  `;
+}
+
+// ===== Eval Table =====
+function renderEvals(){
+  document.getElementById('tbl-eval').innerHTML=`
+    <thead><tr><th>实习生</th><th>工作</th><th>学习</th><th>主动</th><th>AI</th><th>沟通</th><th>韧性</th><th>综合</th><th>英语</th><th>回聘</th><th>高潜</th><th>评语</th><th>操作</th></tr></thead>
+    <tbody>${evals.length?evals.map(e=>{const p=interns.find(x=>x.id==e.internId);return`<tr>
+      <td>${p?esc(p.name):'<span style="color:var(--red)">已删除</span>'}</td>
+      <td>${e.work||'-'}</td><td>${e.learn||'-'}</td><td>${e.proactive||'-'}</td>
+      <td><b>${e.ai||'-'}</b></td><td>${e.comm||'-'}</td><td>${e.resilience||'-'}</td><td><b>${e.overall||'-'}</b></td>
+      <td>${esc(e.eng||'')}</td>
+      <td>${rehireBadge(e.rehire)}</td>
+      <td>${e.potential?`<span class="badge badge-yellow">${e.potential}</span>`:'-'}</td>
+      <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.comment||'')}</td>
+      <td>
+        <button class="btn btn-s btn-sm" onclick="openEvalModal(${e.id})">编辑</button>
+        <button class="btn btn-d btn-sm" onclick="delEval(${e.id})">删除</button>
+      </td>
+    </tr>`}).join(''):'<tr><td colspan="12" style="text-align:center;padding:30px;color:var(--text2)">暂无数据</td></tr>'}
+  `;
+}
+
+// ===== Exit Table =====
+function renderExits(){
+  document.getElementById('tbl-exit').innerHTML=`
+    <thead><tr><th>实习生</th><th>意愿(1-10)</th><th>职业方向</th><th>AI工具</th><th>人才池</th><th>优势</th><th>操作</th></tr></thead>
+    <tbody>${exits.length?exits.map(e=>{const p=interns.find(x=>x.id==e.internId);return`<tr>
+      <td><b>${p?esc(p.name):'<span style="color:var(--red)">已删除</span>'}</b><br><span style="font-size:10px;color:var(--text2)">${esc(p?p.bu:'')}</span></td>
+      <td><b style="color:${e.likelihood>=8?'var(--green)':e.likelihood>=5?'var(--yellow)':'var(--red)'}">${e.likelihood||'-'}</b></td>
+      <td>${esc(e.career||'')}</td>
+      <td>${(e.aitools||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</td>
+      <td>${e.pool?`<span class="badge ${e.pool==='Yes'?'badge-green':'badge-gray'}">${e.pool}</span>`:'-'}</td>
+      <td style="max-width:180px;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(e.strength||'')}">${esc(e.strength||'')}</td>
+      <td>
+        <button class="btn btn-s btn-sm" onclick="openExitModal(${e.id})">编辑</button>
+        <button class="btn btn-d btn-sm" onclick="delExit(${e.id})">删除</button>
+      </td>
+    </tr>`}).join(''):'<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text2)">暂无数据</td></tr>'}
+  `;
+}
+
+// ===== Chart helper =====
+let charts={};
+function drawChart(id,labels,data,type='bar',style={}){
+  const ctx=document.getElementById(id);
+  if(!ctx)return;
+  if(charts[id])charts[id].destroy();
+  charts[id]=new Chart(ctx,{
+    type,data:{labels, datasets:[{label:'',data,backgroundColor:style.bg,borderColor:style.border||style.bg,borderWidth:1}]},
+    options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}
+  });
+}
+
+// ===== Talent Tier =====
+function getTalentTier(internId){
+  const p=interns.find(x=>x.id===internId);
+  if(!p)return'';
+  if(p.status==='已转正')return'Star';
+  const e=evals.find(x=>x.internId===internId);
+  const x=exits.find(x=>x.internId===internId);
+  if(!e)return p.status==='已进入人才库'?'Talent':'';
+  const ai=+e.ai||0,overall=+e.overall||0,rehire=e.rehire;
+  if(ai>=4&&overall>=4&&(rehire==='强烈推荐'||rehire==='推荐'))return'Star';
+  if(ai>=3||overall>=3||rehire==='推荐')return'Talent';
+  if(rehire==='不推荐')return'DNR';
+  return'General';
+}
+
+function tierLabel(tier){
+  const m={'Star':'⭐ Future Star','Talent':'🔵 Future Talent','General':'⚪ General Pool','DNR':'🚫 Do Not Rehire'};
+  return m[tier]||'';
+}
+
+// ===== Talent Pool =====
+function renderTalent(){
+  const kw=document.getElementById('tp-search').value.toLowerCase();
+  const tier=document.getElementById('tp-tier').value;
+  const grad=document.getElementById('tp-grad').value;
+  const bu=document.getElementById('tp-bu').value;
+  
+  const list=interns.filter(x=>{
+    const t=getTalentTier(x.id);
+    if(!t)return false;
+    if(kw&&!(x.name+''+x.phone+''+x.school+''+x.major).toLowerCase().includes(kw))return false;
+    if(tier&&!tier.includes(t))return false;
+    if(grad&&x.grad!==grad)return false;
+    if(bu&&x.bu!==bu)return false;
+    return true;
+  });
+  
+  const tierOrder={Star:0,Talent:1,General:2,DNR:3};
+  list.sort((a,b)=>(tierOrder[getTalentTier(a.id)]||9)-(tierOrder[getTalentTier(b.id)]||9));
+  
+  const tierColors={Star:'var(--yellow)',Talent:'var(--blue)',General:'var(--text2)',DNR:'var(--red)'};
+  
+  document.getElementById('talent-cards').innerHTML=list.length?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px">${list.map(p=>{
+    const t=getTalentTier(p.id);
+    const e=evals.find(x=>x.internId===p.id);
+    const x=exits.find(x=>x.internId===p.id);
+    return`<div class="card" style="border-left:4px solid ${tierColors[t]}">
+      <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:10px">
+        <div><b style="font-size:15px">${esc(p.name)}</b><br><span style="font-size:11px;color:var(--text2)">${esc(p.bu)} · ${esc(p.school)}</span></div>
+        <span class="badge badge-${t==='Star'?'yellow':t==='Talent'?'blue':t==='DNR'?'red':'gray'}">${tierLabel(t).split(' ')[0]}</span>
+      </div>
+      <div style="font-size:11px;color:var(--text2);margin-bottom:8px">${esc(p.grad?p.grad+'届':'暂无毕业时间')} · ${esc(p.role||'未知岗位')} · ${esc(p.mentor?'Mentor: '+p.mentor:'')}</div>
+      ${e?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">
+        ${e.ai?`<span class="badge badge-purple">AI ${e.ai}</span>`:''}
+        ${e.resilience?`<span class="badge" style="background:rgba(229,72,77,.1);color:var(--red)">💪 ${e.resilience}</span>`:''}
+        ${e.overall?`<span class="badge badge-green">综合 ${e.overall}</span>`:''}
+        ${e.rehire?rehireBadge(e.rehire):''}
+        ${e.potential?`<span class="badge badge-yellow">高潜</span>`:''}
+      </div>`:''}
+      ${x?`<div style="font-size:11px;margin-bottom:4px">
+        <span style="color:${x.likelihood>=8?'var(--green)':x.likelihood>=5?'var(--yellow)':'var(--red)'}">回聘意愿: ${x.likelihood||'-'}/10</span>
+        ${x.pool?`<span class="badge ${x.pool==='Yes'?'badge-green':'badge-gray'}" style="margin-left:6px">${x.pool==='Yes'?'✅ 愿入池':'❌ 拒绝'}</span>`:''}
+      </div>`:''}
+      ${x&&x.aitools&&x.aitools.length?`<div style="margin-top:6px">${x.aitools.map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</div>`:''}
+    </div>`;
+  }).join('')}</div>`:'<div class="card" style="text-align:center;padding:40px;color:var(--text2)">暂无符合条件的候选人<br><br>实习生被评价后会自动进入人才池</div>';
+}
+
+// ===== AI Profile =====
+function tierLabel(t){return{'Star':'⭐ Future Star','Talent':'🔵 Future Talent','General':'⚪ General Pool','DNR':'🚫 Do Not Rehire'}[t]||'⚪ General Pool'}
+function renderAIProfile(){
+  const internId=+document.getElementById('ap-intern').value;
+  const el=document.getElementById('ai-profile-content');
+  if(!internId){el.innerHTML='';return}
+  const p=interns.find(x=>x.id===internId);
+  if(!p){el.innerHTML='';return}
+  const e=evals.find(x=>x.internId===internId);
+  const ex=exits.find(x=>x.internId===internId);
+  const t=getTalentTier(internId);
+  
+  if(!e){el.innerHTML=`<div class="card" style="text-align:center;padding:30px;color:var(--text2)">暂无评价数据<br>请先在「Manager评价」中添加评价</div>`;return}
+
+  // 6 dimensions (no overall) — force Number to avoid string concatenation
+  const dims=[
+    {key:'work',label:'工作表现',score:+e.work||0,color:'#5b4cdb',icon:'💼'},
+    {key:'learn',label:'学习能力',score:+e.learn||0,color:'#00a884',icon:'📚'},
+    {key:'proactive',label:'主动性',score:+e.proactive||0,color:'#d4a017',icon:'🚀'},
+    {key:'ai',label:'AI能力',score:+e.ai||0,color:'#8b5cf6',icon:'🤖'},
+    {key:'comm',label:'沟通协作',score:+e.comm||0,color:'#3d8bfd',icon:'🤝'},
+    {key:'resilience',label:'韧性',score:+e.resilience||0,color:'#e5484d',icon:'💪'}
+  ];
+  // Total score out of 5 (unrated dims count as 0)
+  const totalScore=(dims.reduce((s,d)=>s+d.score,0)/dims.length);
+  const ratedCount=dims.filter(d=>d.score>0).length;
+
+  // Generate key insights
+  const insights=[];
+  const strengths=[];const weaknesses=[];
+  dims.forEach(d=>{
+    if(d.score>=4)strengths.push(d);
+    if(d.score<=2&&d.score>0)weaknesses.push(d);
+  });
+  if(strengths.length)insights.push(`💡 突出优势：${strengths.map(d=>`${d.icon}${d.label}(${d.score}分)`).join('、')}`);
+  if(weaknesses.length)insights.push(`⚠️ 提升空间：${weaknesses.map(d=>`${d.icon}${d.label}(${d.score}分)`).join('、')}`);
+  if(e.potential==='Yes')insights.push('🌟 被识别为高潜人才');
+  if(e.resilience>=4)insights.push('💪 韧性突出：面对压力和挑战表现出色');
+  if(e.ai>=4&&e.potential==='Yes')insights.push('🤖 AI高潜：具备AI时代关键能力');
+  if(e.eng==='Fluent')insights.push('🌍 英语流利：适合国际化项目');
+  if(ex&&ex.likelihood>=8)insights.push(`🏠 回聘意愿高(${ex.likelihood}/10)：值得重点维护`);
+  if(ex&&ex.likelihood<=4&&ex.likelihood>0)insights.push(`⚠️ 回聘意愿偏低(${ex.likelihood}/10)：需关注原因`);
+  if(e.rehire==='强烈推荐')insights.push('👍 Manager强烈推荐回聘');
+  if(e.rehire==='不推荐')insights.push('🚫 Manager不推荐回聘');
+  if(ex&&ex.aitools&&ex.aitools.length>=3)insights.push(`🛠️ AI工具达人：熟练使用${ex.aitools.length}种工具`);
+  if(ex&&ex.career)insights.push(`🎯 职业方向明确：${ex.career.split('（')[0]}`);
+  if(!strengths.length&&!weaknesses.length&&totalScore>=3)insights.push('📊 各维度均衡发展，无明显短板');
+
+  const rehireRec=t==='Star'?'🟢 Strong Hire Potential':t==='Talent'?'🔵 Hire':t==='DNR'?'🔴 Not Recommended':'⚪ Keep In Touch';
+
+  el.innerHTML=`
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+        <div>
+          <div style="font-size:20px;font-weight:700">${esc(p.name)}</div>
+          <div style="font-size:13px;color:var(--text2);margin-top:2px">${esc(p.school||'-')} · ${esc(p.major||'-')} · ${p.grad||'-'}届 · ${esc(p.bu)}${p.phone?' · 📱'+esc(p.phone):''}</div>
+        </div>
+        <div style="text-align:right">
+          <span class="badge ${t==='Star'?'badge-yellow':t==='Talent'?'badge-blue':t==='DNR'?'badge-red':'badge-gray'}" style="font-size:13px;padding:5px 14px">${tierLabel(t)}</span>
+          <div style="font-size:12px;margin-top:4px;color:var(--text2)">${rehireRec}</div>
+          <div style="margin-top:8px;display:flex;gap:4px;justify-content:flex-end">
+            <button class="btn btn-s btn-sm" onclick="shareEvalLink(${p.id})" title="复制评价表链接">📤 评价</button>
+            <button class="btn btn-s btn-sm" onclick="shareExitLink(${p.id})" title="复制反馈表链接">📝 反馈</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start">
+      <div style="text-align:center">
+        <h4 style="font-size:14px;font-weight:600;margin-bottom:8px;text-align:left">📊 六维能力雷达</h4>
+        <canvas id="ai-radar" style="max-height:280px"></canvas>
+        <div style="margin-top:10px;font-size:20px;font-weight:700;color:var(--accent)">${totalScore.toFixed(1)}<span style="font-size:12px;color:var(--text2);font-weight:400"> / 5 总评分</span></div>
+        ${ratedCount<dims.length?`<div style="font-size:11px;color:var(--text2);margin-top:2px">已评 ${ratedCount}/${dims.length} 项，未评项按0分计</div>`:''}
+      </div>
+      <div>
+        <h4 style="font-size:14px;font-weight:600;margin-bottom:10px">🔑 Key Points</h4>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          ${dims.map(d=>`
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="font-size:14px;width:20px;text-align:center">${d.icon}</span>
+              <span style="font-size:12px;width:60px;color:var(--text2)">${d.label}</span>
+              <div style="flex:1;height:8px;background:var(--bg);border-radius:4px;overflow:hidden">
+                <div style="width:${d.score?d.score/5*100:0}%;height:100%;background:${d.color};border-radius:4px;transition:width .3s"></div>
+              </div>
+              <span style="font-size:13px;font-weight:600;color:${d.score>=4?d.color:d.score<=2&&d.score>0?'var(--red)':'var(--text)'};width:28px;text-align:right">${d.score||'-'}</span>
+            </div>
+          `).join('')}
+        </div>
+        <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
+          <div style="display:flex;flex-wrap:wrap;gap:6px;font-size:11px">
+            <span class="tag" style="background:rgba(0,168,132,.1);color:var(--green)">回聘：${e.rehire||'-'}</span>
+            <span class="tag" style="background:rgba(139,92,246,.1);color:var(--purple)">高潜：${e.potential||'-'}</span>
+            <span class="tag" style="background:rgba(61,139,253,.1);color:var(--blue)">英语：${e.eng||'-'}</span>
+            ${ex&&ex.likelihood?`<span class="tag" style="background:rgba(${ex.likelihood>=8?'0,168,132':ex.likelihood>=5?'212,160,23':'229,72,77'},.1);color:${ex.likelihood>=8?'var(--green)':ex.likelihood>=5?'var(--yellow)':'var(--red)'}">意愿：${ex.likelihood}/10</span>`:''}
+            ${ex&&ex.aitools&&ex.aitools.length?ex.aitools.map(a=>`<span class="tag">${esc(a)}</span>`).join(''):''}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    ${insights.length?`<div class="card">
+      <h4 style="font-size:14px;font-weight:600;margin-bottom:10px">💡 人才洞察</h4>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        ${insights.map(i=>`<div style="font-size:13px;padding:6px 10px;background:var(--bg);border-radius:6px;line-height:1.6">${i}</div>`).join('')}
+      </div>
+    </div>`:''}
+
+    <div class="card profile-card">
+      <div class="profile-section">
+        <h4>💬 Manager评语</h4>
+        <div style="font-size:13px;color:${e.comment?'var(--text)':'var(--text2)'}">
+          ${e.comment?esc(e.comment):'暂无评语'}
+        </div>
+        ${e.lang?`<div style="margin-top:6px;font-size:12px;color:var(--text2)">其他语言：${esc(e.lang)}</div>`:''}
+      </div>
+      ${ex?`<div class="profile-section">
+        <h4>📝 离职反馈</h4>
+        <div style="font-size:13px">
+          ${ex.plan?`<div style="margin-bottom:6px"><b>职业规划：</b>${esc(ex.plan)}</div>`:''}
+          ${ex.gain?`<div style="margin-bottom:6px"><b>实习收获：</b>${esc(ex.gain)}</div>`:''}
+          ${ex.strength?`<div><b>自述优势：</b>${esc(ex.strength)}</div>`:''}
+        </div>
+      </div>`:'<div class="profile-section"><h4>📝 离职反馈</h4><div style="font-size:12px;color:var(--text2)">暂无反馈</div></div>'}
+    </div>
+  `;
+
+  // Draw 6-dimension radar chart
+  const ctx=document.getElementById('ai-radar');
+  if(ctx){
+    new Chart(ctx,{
+      type:'radar',
+      data:{
+        labels:dims.map(d=>d.label),
+        datasets:[{
+          label:'能力评分',
+          data:dims.map(d=>d.score||0),
+          backgroundColor:'rgba(91,76,219,0.15)',
+          borderColor:'#5b4cdb',
+          borderWidth:2,
+          pointBackgroundColor:dims.map(d=>d.color),
+          pointBorderColor:'#fff',
+          pointBorderWidth:1,
+          pointRadius:5,
+          pointHoverRadius:7
+        },{
+          label:'平均线',
+          data:dims.map(()=>+totalScore.toFixed(1)),
+          backgroundColor:'transparent',
+          borderColor:'rgba(107,112,132,0.3)',
+          borderWidth:1,
+          borderDash:[4,4],
+          pointRadius:0,
+          pointHoverRadius:0
+        }]
+      },
+      options:{
+        responsive:true,
+        plugins:{legend:{display:false}},
+        scales:{r:{
+          beginAtZero:true,
+          max:5,
+          ticks:{stepSize:1,font:{size:10},backdropColor:'transparent'},
+          pointLabels:{font:{size:12,weight:'500'},color:dims.map(d=>d.color)},
+          grid:{color:'rgba(0,0,0,0.06)'},
+          angleLines:{color:'rgba(0,0,0,0.06)'}
+        }}
+      }
+    });
+  }
+}
+
+// ===== CEO Dashboard =====
+function renderCEO(){
+  const total=interns.length;
+  const active=interns.filter(x=>x.status==='在职').length;
+  const stars=interns.filter(x=>getTalentTier(x.id)==='Star');
+  const talents=interns.filter(x=>getTalentTier(x.id)==='Talent');
+  const avgOverall=evals.filter(e=>e.overall).reduce((s,e)=>s+(+e.overall||0),0)/(evals.filter(e=>e.overall).length||1);
+  const highRehire=evals.filter(e=>e.rehire==='强烈推荐'||e.rehire==='推荐').length;
+  document.getElementById('ceo-stats').innerHTML=[
+    ['👥 实习生总数',total],['✅ 在职人数',active],['⭐ Future Star',stars.length],
+    ['🔵 Future Talent',talents.length],['📈 平均综合分',avgOverall.toFixed(1)],['👍 推荐回聘',highRehire+'人']
+  ].map(([l,n])=>`<div class="stat-box"><div class="num">${n}</div><div class="lbl">${l}</div></div>`).join('');
+  
+  const buLabels=['Havas Creative','Havas Media','Havas Health','Havas Events','BETC'];
+  const buStarData=buLabels.map(b=>stars.filter(x=>x.bu===b).length);
+  const buTalentData=buLabels.map(b=>talents.filter(x=>x.bu===b).length);
+  
+  new Chart(document.getElementById('chart-ceo-bu'),{
+    type:'bar',
+    data:{labels:buLabels,datasets:[{label:'⭐ Star',data:buStarData,backgroundColor:'rgba(212,160,23,0.7)'},{label:'🔵 Talent',data:buTalentData,backgroundColor:'rgba(61,139,253,0.7)'}]},
+    options:{responsive:true,plugins:{legend:{position:'bottom',labels:{font:{size:11}}}}}
+  });
+  
+  const gradLabels=['2026','2027','2028','2029','2030'];
+  const gradCounts=gradLabels.map(g=>interns.filter(x=>x.grad===g).length);
+  new Chart(document.getElementById('chart-ceo-grad'),{
+    type:'line',
+    data:{labels:gradLabels,datasets:[{label:'人数',data:gradCounts,borderColor:'#5b4cdb',backgroundColor:'rgba(91,76,219,0.1)',fill:true,tension:.3}]},
+    options:{responsive:true,plugins:{legend:{display:false}}}
+  });
+  
+  const aiScores=[0,0,0,0,0];evals.forEach(e=>{if(e.ai>=1&&e.ai<=5)aiScores[e.ai-1]++});
+  new Chart(document.getElementById('chart-ceo-ai'),{
+    type:'bar',
+    data:{labels:['1分','2分','3分','4分','5分'],datasets:[{label:'AI能力',data:aiScores,backgroundColor:['#e5484d','#d45d22','#d4a017','#3d8bfd','#00a884']}]},
+    options:{responsive:true,plugins:{legend:{display:false}}}
+  });
+  
+  const careerMap={};
+  exits.forEach(e=>{if(e.career)careerMap[e.career]=(careerMap[e.career]||0)+1});
+  const cLabels=Object.keys(careerMap);
+  const cCounts=cLabels.map(l=>careerMap[l]);
+  if(cLabels.length)new Chart(document.getElementById('chart-ceo-career'),{type:'doughnut',data:{labels:cLabels,datasets:[{data:cCounts,backgroundColor:cLabels.map((_,i)=>['#5b4cdb','#00a884','#d4a017','#3d8bfd','#e5484d','#8b5cf6','#d45d22'][i%7])}]},options:{responsive:true,plugins:{legend:{position:'right',labels:{font:{size:11}}}}}});
+  else new Chart(document.getElementById('chart-ceo-career'),{type:'doughnut',data:{labels:['暂无数据'],datasets:[{data:[1],backgroundColor:['#e2e4ed']}]},options:{responsive:true}});
+  
+  const schoolCounts={};interns.forEach(x=>{if(x.school)schoolCounts[x.school]=(schoolCounts[x.school]||0)+1});
+  const topSchools=Object.entries(schoolCounts).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  document.getElementById('ceo-top-schools').innerHTML=topSchools.length?`<div style="display:flex;flex-wrap:wrap;gap:6px">${topSchools.map(([s,c])=>`<span class="tag" style="font-size:12px;padding:4px 10px">${esc(s)} (${c})</span>`).join('')}</div>`:'<div style="color:var(--text2);font-size:12px">暂无数据</div>';
+}
+
+function generateCEOReport(){
+  const now=new Date();const thisMonth=now.toISOString().slice(0,7);
+  const mStr=`${now.getFullYear()}年${now.getMonth()+1}月`;
+  const newM=interns.filter(x=>x.start&&x.start.startsWith(thisMonth));
+  const leftM=interns.filter(x=>x.end&&x.end.startsWith(thisMonth));
+  const stars=interns.filter(x=>getTalentTier(x.id)==='Star');
+  const talents=interns.filter(x=>getTalentTier(x.id)==='Talent');
+  const aiHP=evals.filter(x=>x.ai>=4&&x.potential==='Yes');
+  const highW=exits.filter(x=>x.likelihood>=8);
+  const bus=['Havas Creative','Havas Media','Havas Health','Havas Events','BETC'];
+  
+  let r=`Havas China Future Talent Pool 月报\n${mStr}\n${'='.repeat(40)}\n\n`;
+  r+=`【Executive Summary】\n`;
+  r+=`本月新增实习生 ${newM.length} 人，离职 ${leftM.length} 人。\n`;
+  r+=`人才池总计 ${stars.length+talents.length} 人（Future Star ${stars.length}，Future Talent ${talents.length}）。\n`;
+  r+=`AI高潜人才 ${aiHP.length} 人，高回聘意愿（8分+）${highW.length} 人。\n\n`;
+  
+  r+=`【人才池变化】\n`;
+  r+=`⭐ 新增 Future Star：${stars.length?stars.map(x=>x.name).join('、'):'暂无'}\n`;
+  r+=`🔵 新增 Future Talent：${talents.length?talents.map(x=>x.name).join('、'):'暂无'}\n\n`;
+  
+  r+=`【AI人才分析】\n`;
+  r+=`AI高潜人才名单：${aiHP.length?aiHP.map(e=>{const p=interns.find(x=>x.id===e.internId);return p?p.name:'未知'}).join('、'):'暂无'}\n`;
+  const aiScores=[0,0,0,0,0];evals.forEach(e=>{if(e.ai>=1&&e.ai<=5)aiScores[e.ai-1]++});
+  r+=`AI能力分布：1分(${aiScores[0]}) 2分(${aiScores[1]}) 3分(${aiScores[2]}) 4分(${aiScores[3]}) 5分(${aiScores[4]})\n\n`;
+  
+  r+=`【BU分析】\n`;
+  bus.forEach(b=>{
+    const bi=interns.filter(x=>x.bu===b);
+    const bs=bi.filter(x=>getTalentTier(x.id)==='Star').length;
+    const bt=bi.filter(x=>getTalentTier(x.id)==='Talent').length;
+    r+=`${b}：总${bi.length}人 | Star ${bs} | Talent ${bt}\n`;
+  });
+  r+='\n';
+  
+  r+=`【人才风险与机会】\n`;
+  const nextYear=['2026','2027'];
+  const convertible=interns.filter(x=>nextYear.includes(x.grad)&&getTalentTier(x.id)&&getTalentTier(x.id)!=='DNR');
+  r+=`未来一年可转化人才：${convertible.length} 人\n`;
+  if(convertible.length)r+=`  ${convertible.map(x=>`${x.name}(${x.grad}届·${x.bu})`).join('、')}\n`;
+  
+  r+=`\n【HR建议】\n`;
+  if(stars.length)r+=`📌 建议重点维护的 Future Star：${stars.map(x=>x.name).join('、')}\n`;
+  const nextGrad=interns.filter(x=>x.grad==='2026'&&getTalentTier(x.id)&&getTalentTier(x.id)!=='DNR');
+  if(nextGrad.length)r+=`📌 建议提前联系的 2026届毕业生：${nextGrad.map(x=>x.name).join('、')}\n`;
+  if(stars.length||talents.length)r+=`📌 建议纳入校招优先沟通：${[...stars,...talents].map(x=>x.name).join('、')}\n`;
+  
+  document.getElementById('report-text').textContent=r;
+  openModal('modal-report');
+}
+
+// ===== Helpers =====
+function esc(s){if(!s)return'';const d=document.createElement('div');d.textContent=s;return d.innerHTML}
+function statusBadge(s){const m={'在职':'badge-green','已离职':'badge-gray','已进入人才库':'badge-blue','已转正':'badge-purple'};return`<span class="badge ${m[s]||'badge-gray'}">${s}</span>`}
+function rehireBadge(s){const m={'强烈推荐':'badge-yellow','推荐':'badge-blue','一般':'badge-gray','不推荐':'badge-red'};return`<span class="badge ${m[s]||'badge-gray'}">${s||'-'}</span>`}
+function populateInternSelect(id){
+  const el=document.getElementById(id);
+  el.innerHTML='<option value="">请选择</option>'+interns.map(p=>`<option value="${p.id}">${p.name} - ${p.bu}</option>`).join('');
+}
+function exportCSV(type){
+  let csv='';
+  if(type==='interns'){
+    csv='姓名,手机号,学校,专业,毕业时间,BU,岗位,Mentor,入职日期,离职日期,状态\n';
+    interns.forEach(p=>{csv+=`"${p.name}","${p.phone||''}","${p.school||''}","${p.major||''}","${p.grad||''}","${p.bu||''}","${p.role||''}","${p.mentor||''}","${p.start||''}","${p.end||''}","${p.status||''}"\n`});
+  }
+  const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=`Havas_FTP_${type}_${new Date().toISOString().slice(0,10)}.csv`;a.click();
+}
+function copyReport(){
+  const t=document.getElementById('report-text').textContent;
+  navigator.clipboard.writeText(t).then(()=>alert('已复制到剪贴板'));
+}
+
+// ===== Import / Template =====
+const IMPORT_FIELDS={name:'姓名',phone:'手机号',school:'学校',major:'专业',grad:'毕业时间',bu:'所属BU',role:'实习岗位',mentor:'Mentor',status:'当前状态',start:'入职日期',end:'离职日期'};
+const IMPORT_FIELD_KEYS=Object.keys(IMPORT_FIELDS);
+let importBuffer=[];
+
+function downloadTemplate(){
+  const ws=XLSX.utils.aoa_to_sheet([IMPORT_FIELD_KEYS.map(k=>IMPORT_FIELDS[k])]);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'实习生');
+  XLSX.utils.sheet_add_aoa(ws,[['张三','13800138000','复旦大学','广告学','2027','Havas Creative','创意实习生','李经理','在职','2026-03-01','','']],{origin:'A2'});
+  ws['!cols']=IMPORT_FIELD_KEYS.map(()=>({wch:14}));
+  XLSX.writeFile(wb,'Havas_FTP_导入模板.xlsx');
+}
+
+function handleImport(e){
+  const file=e.target.files[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=function(ev){
+    try{
+      const data=new Uint8Array(ev.target.result);
+      const wb=XLSX.read(data,{type:'array',cellDates:true});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const json=XLSX.utils.sheet_to_json(ws,{defval:''});
+      if(!json.length){alert('文件为空');return}
+      const headerMap={};
+      const firstRow=json[0];
+      Object.keys(firstRow).forEach(h=>{
+        const key=IMPORT_FIELD_KEYS.find(k=>IMPORT_FIELDS[k]===h.trim()||k===h.trim().toLowerCase());
+        if(key)headerMap[h.trim()]=key;
+      });
+      Object.keys(firstRow).forEach(h=>{
+        if(IMPORT_FIELD_KEYS.includes(h.trim().toLowerCase())){
+          headerMap[h.trim()]=h.trim().toLowerCase();
+        }
+      });
+      importBuffer=json.map(row=>{
+        const obj={};
+        IMPORT_FIELD_KEYS.forEach(key=>{
+          let val='';
+          for(const[h,mk] of Object.entries(headerMap)){
+            if(mk===key&&row[h]!==undefined)val=String(row[h]);
+          }
+          if(!val&&row[key]!==undefined)val=String(row[key]);
+          if(!val){
+            const lk=Object.keys(row).find(x=>x.toLowerCase()===key.toLowerCase());
+            if(lk)val=String(row[lk]);
+          }
+          if((key==='start'||key==='end')&&val){
+            if(val.includes('T'))val=val.slice(0,10);
+            if(!isNaN(val)&&Number(val)>40000){
+              const d=new Date((Number(val)-25569)*86400000);
+              val=d.toISOString().slice(0,10);
+            }
+          }
+          obj[key]=val.trim();
+        });
+        return obj;
+      }).filter(x=>x.name);
+      
+      if(!importBuffer.length){alert('未识别到有效数据，请确认表头是否匹配模板');return}
+      
+      const valid=importBuffer.filter(x=>x.name&&x.bu);
+      const invalid=importBuffer.filter(x=>x.name&&!x.bu);
+      document.getElementById('import-summary').innerHTML=`
+        <div style="font-size:13px;margin-bottom:8px">
+          识别到 <b>${importBuffer.length}</b> 条数据，
+          其中 <b style="color:var(--green)">${valid.length}</b> 条有效（姓名+BU齐全），
+          ${invalid.length?`<b style="color:var(--red)">${invalid.length}</b> 条缺少BU，将标记为待补充`:''}
+        </div>
+      `;
+      document.getElementById('tbl-import-preview').innerHTML=`<thead><tr>${IMPORT_FIELD_KEYS.map(k=>`<th>${IMPORT_FIELDS[k]}</th>`).join('')}</tr></thead><tbody>${importBuffer.map(r=>`<tr>${IMPORT_FIELD_KEYS.map(k=>`<td style="${k==='name'&&!r.bu?'color:var(--red)':''}">${esc(r[k]||'')}</td>`).join('')}</tr>`).join('')}</tbody>`;
+      openModal('modal-import');
+    }catch(err){alert('文件解析失败：'+err.message)}
+  };
+  reader.readAsArrayBuffer(file);
+  e.target.value='';
+}
+
+function confirmImport(){
+  if(!importBuffer.length)return;
+  let added=0;
+  const now=new Date().toISOString();
+  importBuffer.forEach(r=>{
+    if(!r.name)return;
+    const dup=interns.find(x=>x.name===r.name&&x.bu===r.bu&&x.start===r.start);
+    if(dup)return;
+    interns.push({
+      id:Date.now()+Math.random()*10000|0,
+      name:r.name,
+      phone:r.phone||'',
+      school:r.school||'',
+      major:r.major||'',
+      grad:r.grad||'',
+      bu:r.bu||'',
+      role:r.role||'',
+      mentor:r.mentor||'',
+      status:r.status||'在职',
+      start:r.start||'',
+      end:r.end||'',
+      updatedAt:now
+    });
+    added++;
+  });
+  SD('interns',interns);
+  importBuffer=[];
+  closeModal('modal-import');
+  refresh();
+  alert(`成功导入 ${added} 条记录`);
+}
+
+// ===== Submit to Cloud (for form mode) =====
+async function submitToCloud(dataType, newData){
+  if(!jsonBinConfig||!jsonBinConfig.binId||!jsonBinConfig.apiKey) return false;
+  try{
+    // First read existing cloud data
+    const getRes=await fetch(JSONBIN_API_BASE+'/b/'+jsonBinConfig.binId+'/latest',{
+      headers:{'X-Master-Key':jsonBinConfig.apiKey}
+    });
+    if(!getRes.ok) throw new Error('读取云端失败');
+    const cloudRes=await getRes.json();
+    const cloud=cloudRes.record||{interns:[],evals:[],exits:[]};
+    
+    // Append new data to the correct array
+    if(!cloud[dataType]) cloud[dataType]=[];
+    // Check for existing entry with same internId, replace if found
+    const idx=cloud[dataType].findIndex(x=>x.internId===newData.internId);
+    if(idx>=0) cloud[dataType][idx]=newData;
+    else cloud[dataType].push(newData);
+    cloud.lastSyncedAt=new Date().toISOString();
+    
+    // Write back
+    const putRes=await fetch(JSONBIN_API_BASE+'/b/'+jsonBinConfig.binId,{
+      method:'PUT',
+      headers:{
+        'Content-Type':'application/json',
+        'X-Master-Key':jsonBinConfig.apiKey,
+        'X-Bin-Versioning':'false'
+      },
+      body:JSON.stringify(cloud)
+    });
+    if(!putRes.ok) throw new Error('写入云端失败');
+    console.log(dataType+' submitted to cloud successfully');
+    return true;
+  }catch(err){
+    console.error('Cloud submit failed:',err);
+    return false;
+  }
+}
+
+// ===== Refresh =====
+function refresh(){
+  renderDashboard();renderInterns();renderEvals();renderExits();renderTalent();
+  populateInternSelect('ap-intern');
+  renderAIProfile();renderCEO();
+}
+
+// ===== Share Form Links =====
+function getCloudParams(){
+  // Build cloud credential params for share links so recipients auto-connect
+  if(!jsonBinConfig||!jsonBinConfig.apiKey) return '';
+  const enc=btoa(JSON.stringify({k:jsonBinConfig.apiKey,b:jsonBinConfig.binId||''}));
+  return '&cloud='+encodeURIComponent(enc);
+}
+
+function shareEvalLink(id){
+  const p=interns.find(x=>x.id===id);if(!p)return;
+  const base=location.href.split('?')[0].split('#')[0];
+  const url=base+'?form=eval&iid='+id+getCloudParams();
+  const msg=`Hi，需要您帮忙完成「${p.name}」的实习评价，请点击链接填写：\n${url}\n\n填写时间约2分钟，感谢！`;
+  navigator.clipboard.writeText(msg).then(()=>alert('链接已复制，可直接粘贴发送给Manager'));
+}
+function shareExitLink(id){
+  const p=interns.find(x=>x.id===id);if(!p)return;
+  const base=location.href.split('?')[0].split('#')[0];
+  const url=base+'?form=exit&iid='+id+getCloudParams();
+  const msg=`Hi ${p.name}，在你离职前，麻烦填写一份简短的反馈问卷，帮助我们更好地了解你的实习体验：\n${url}\n\n感谢你的时间！`;
+  navigator.clipboard.writeText(msg).then(()=>alert('链接已复制，可直接粘贴发送给实习生'));
+}
+
+// ===== Import Eval/Exit Results =====
+function importResult(type){
+  const input=document.createElement('input');
+  input.type='file';input.accept='.json';
+  input.onchange=function(e){
+    const file=e.target.files[0];if(!file)return;
+    const reader=new FileReader();
+    reader.onload=function(ev){
+      try{
+        const data=JSON.parse(ev.target.result);
+        const now=new Date().toISOString();
+        if(type==='eval'){
+          if(data.__type!=='ftp_eval'){alert('文件格式不匹配');return}
+          const p=interns.find(x=>x.name===data._internName&&x.bu===data._internBu);
+          if(!p){alert('未找到对应实习生：'+data._internName+' - '+data._internBu);return}
+          const existing=evals.find(x=>x.internId===p.id);
+          if(existing){if(!confirm('该实习生已有评价，是否覆盖？'))return;evals=evals.filter(x=>x.id!==existing.id)}
+          evals.push({id:Date.now(),internId:p.id,work:data.work,learn:data.learn,proactive:data.proactive,ai:data.ai,comm:data.comm,resilience:data.resilience,overall:data.overall,eng:data.eng,lang:data.lang,rehire:data.rehire,potential:data.potential,comment:data.comment,date:data.date||new Date().toISOString().slice(0,10),updatedAt:now});
+          SD('evals',evals);
+        }else if(type==='exit'){
+          if(data.__type!=='ftp_exit'){alert('文件格式不匹配');return}
+          const p=interns.find(x=>x.name===data._internName&&x.bu===data._internBu);
+          if(!p){alert('未找到对应实习生：'+data._internName+' - '+data._internBu);return}
+          const existing=exits.find(x=>x.internId===p.id);
+          if(existing){if(!confirm('该实习生已有离职反馈，是否覆盖？'))return;exits=exits.filter(x=>x.id!==existing.id)}
+          exits.push({id:Date.now(),internId:p.id,likelihood:data.likelihood,career:data.career,plan:data.plan,gain:data.gain,strength:data.strength,aitools:data.aitools,pool:data.pool,date:data.date||new Date().toISOString().slice(0,10),updatedAt:now});
+          SD('exits',exits);
+        }
+        refresh();
+        alert('导入成功！');
+      }catch(err){alert('文件解析失败：'+err.message)}
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
+// ===== Form-Only Mode (URL params) =====
+function checkFormMode(){
+  const params=new URLSearchParams(location.search);
+  const formType=params.get('form');
+  if(!formType)return false;
+  const iid=+params.get('iid');
+  return{type:formType,iid};
+}
+
+function initFormMode(mode){
+  document.querySelector('.nav').style.display='none';
+  document.querySelectorAll('.page').forEach(p=>p.style.display='none');
+  
+  // Check for cloud credentials in share link
+  const params=new URLSearchParams(location.search);
+  const cloudParam=params.get('cloud');
+  if(cloudParam){
+    try{
+      const c=JSON.parse(atob(decodeURIComponent(cloudParam)));
+      if(c.k&&c.b){
+        jsonBinConfig={apiKey:c.k,binId:c.b};
+        isCloudConnected=true;
+        console.log('Form mode: cloud credentials loaded from share link');
+      }
+    }catch(e){console.error('Failed to parse cloud params:',e)}
+  }
+  
+  if(mode.type==='eval'){
+    showStandaloneEval(mode.iid);
+  }else if(mode.type==='exit'){
+    showStandaloneExit(mode.iid);
+  }
+}
+
+function showStandaloneEval(iid){
+  const p=interns.find(x=>x.id===iid);
+  const container=document.createElement('div');
+  container.style.cssText='max-width:600px;margin:40px auto;padding:0 20px';
+  container.innerHTML=`
+    <div style="text-align:center;margin-bottom:24px">
+      <div style="font-size:20px;font-weight:700;color:var(--accent)">⭐ Manager 评价表</div>
+      <div style="font-size:13px;color:var(--text2);margin-top:4px">Havas Future Talent Pool</div>
+    </div>
+    <div class="card" style="margin-bottom:12px;background:#f0f1ff;border-color:#d0ccf5">
+      <div style="font-size:13px"><b>实习生：</b>${esc(p?p.name:'未知')} &nbsp; <b>BU：</b>${esc(p?p.bu:'-')} &nbsp; <b>岗位：</b>${esc(p?p.role:'-')}</div>
+    </div>
+    <div class="card">
+      <div class="fr3">
+        <div class="fg"><label>工作表现 (1-5)</label><select id="sf-work"><option value="">请评分</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></div>
+        <div class="fg"><label>学习能力 (1-5)</label><select id="sf-learn"><option value="">请评分</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></div>
+        <div class="fg"><label>主动性 (1-5)</label><select id="sf-proactive"><option value="">请评分</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></div>
+      </div>
+      <div class="fr3">
+        <div class="fg"><label>AI能力 (1-5)</label><select id="sf-ai"><option value="">请评分</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></div>
+        <div class="fg"><label>沟通协作 (1-5)</label><select id="sf-comm"><option value="">请评分</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></div>
+        <div class="fg"><label>韧性 (1-5)</label><select id="sf-resilience"><option value="">请评分</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></div>
+      </div>
+      <div class="fr3">
+        <div class="fg"><label>综合评价 (1-5)</label><select id="sf-overall"><option value="">请评分</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></div>
+        <div class="fg"><label>英语能力</label><select id="sf-eng"><option value="">请选择</option><option>Fluent</option><option>Good</option><option>Basic</option></select></div>
+        <div class="fg"><label>其他语言</label><input id="sf-lang" placeholder="如：日语N1、法语B2"></div>
+      </div>
+      <div class="fr">
+        <div class="fg"><label>回聘推荐</label><select id="sf-rehire"><option value="">请选择</option><option>强烈推荐</option><option>推荐</option><option>一般</option><option>不推荐</option></select></div>
+        <div class="fg"><label>高潜人才</label><select id="sf-potential"><option value="">请选择</option><option>Yes</option><option>No</option></select></div>
+      </div>
+      <div class="fg"><label>Manager评语（300字内）</label><textarea id="sf-comment" maxlength="300" placeholder="请简要评价该实习生的表现、亮点和提升空间"></textarea></div>
+      <button class="btn btn-p" style="width:100%;padding:12px;font-size:14px;margin-top:8px" onclick="submitStandaloneEval(${iid})">提交评价</button>
+    </div>
+    <div id="sf-result" style="display:none"></div>
+  `;
+  document.body.appendChild(container);
+}
+
+function submitStandaloneEval(iid){
+  const p=interns.find(x=>x.id===iid);
+  const now=new Date().toISOString();
+  const data={
+    __type:'ftp_eval',
+    _internName:p?p.name:'',
+    _internBu:p?p.bu:'',
+    work:+document.getElementById('sf-work').value||0,
+    learn:+document.getElementById('sf-learn').value||0,
+    proactive:+document.getElementById('sf-proactive').value||0,
+    ai:+document.getElementById('sf-ai').value||0,
+    comm:+document.getElementById('sf-comm').value||0,
+    resilience:+document.getElementById('sf-resilience').value||0,
+    overall:+document.getElementById('sf-overall').value||0,
+    eng:document.getElementById('sf-eng').value,
+    lang:document.getElementById('sf-lang').value.trim(),
+    rehire:document.getElementById('sf-rehire').value,
+    potential:document.getElementById('sf-potential').value,
+    comment:document.getElementById('sf-comment').value.trim(),
+    date:new Date().toISOString().slice(0,10),
+    updatedAt:now
+  };
+  if(!data.overall||!data.rehire){alert('请至少填写综合评价和回聘推荐');return}
+  const existing=evals.find(x=>x.internId===iid);
+  if(existing)evals=evals.filter(x=>x.id!==existing.id);
+  data.id=Date.now();data.internId=iid;
+  evals.push(data);SD('evals',evals);
+  
+  // Submit to cloud if connected (share link form mode)
+  const cloudPromise = isCloudConnected ? submitToCloud('evals', data) : Promise.resolve(false);
+  
+  cloudPromise.then(cloudOk => {
+    const cloudMsg = cloudOk ? '✅ 评价已自动同步至HR系统' : '📋 请将结果文件发送给HRBP';
+    document.getElementById('sf-result').style.display='block';
+    document.getElementById('sf-result').innerHTML=`
+      <div class="card" style="text-align:center;margin-top:16px">
+        <div style="font-size:32px;margin-bottom:8px">✅</div>
+        <div style="font-size:16px;font-weight:600;margin-bottom:4px">评价已提交！</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:16px">感谢您的宝贵反馈</div>
+        <div style="font-size:13px;color:${cloudOk?'var(--green)':'var(--text2)'};margin-bottom:12px">${cloudMsg}</div>
+        ${cloudOk?'':`<a href="${URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}))}" download="评价_${data._internName}_${data.date}.json" class="btn btn-p">📥 下载结果文件</a>`}
+      </div>
+    `;
+    document.querySelectorAll('.card').forEach(c=>{if(!c.querySelector('#sf-result'))c.style.display='none'});
+  });
+}
+
+function showStandaloneExit(iid){
+  const p=interns.find(x=>x.id===iid);
+  const container=document.createElement('div');
+  container.style.cssText='max-width:600px;margin:40px auto;padding:0 20px';
+  container.innerHTML=`
+    <div style="text-align:center;margin-bottom:24px">
+      <div style="font-size:20px;font-weight:700;color:var(--accent)">📝 离职反馈问卷</div>
+      <div style="font-size:13px;color:var(--text2);margin-top:4px">Havas Future Talent Pool · 约3分钟</div>
+    </div>
+    <div class="card" style="margin-bottom:12px;background:#f0f1ff;border-color:#d0ccf5">
+      <div style="font-size:13px"><b>实习生：</b>${esc(p?p.name:'未知')} &nbsp; <b>BU：</b>${esc(p?p.bu:'-')}</div>
+    </div>
+    <div class="card">
+      <div class="fg"><label>Q1: 毕业时加入Havas的可能性（1-10分）</label>
+        <div style="display:flex;gap:4px;margin-top:4px">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<label style="display:flex;align-items:center;gap:2px;font-size:12px"><input type="radio" name="sf-likelihood" value="${n}"> ${n}</label>`).join('')}</div>
+      </div>
+      <div class="fg"><label>Q2: 毕业后最希望发展的职业方向</label><select id="sf-career"><option value="">请选择</option><option>Creative（创意）</option><option>Strategy（策略）</option><option>Account（客户服务）</option><option>Media（媒介）</option><option>Health Communication（医疗传播）</option><option>Events（活动营销）</option><option>Data & Analytics（数据分析）</option><option>Social & Content（内容营销）</option><option>PR（公关传播）</option><option>AI / Technology（AI与技术）</option><option>Other（其他）</option></select></div>
+      <div class="fg"><label>Q3: 未来3-5年职业规划</label><textarea id="sf-plan" placeholder="你希望成长为什么样的人？未来最希望从事什么类型的工作？" style="min-height:80px"></textarea></div>
+      <div class="fg"><label>Q4: 在Havas实习期间最大的收获</label><textarea id="sf-gain" placeholder="学到了什么？有什么印象深刻的经历？" style="min-height:80px"></textarea></div>
+      <div class="fg"><label>Q5: 自己最大的优势</label><textarea id="sf-strength" placeholder="你最擅长什么？别人常夸你什么？" style="min-height:80px"></textarea></div>
+      <div class="fg"><label>Q6: 最常使用的AI工具（可多选）</label>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px" id="sf-aitools">
+          ${['ChatGPT','Claude','Gemini','Cursor','Midjourney','Runway','Notion AI','Perplexity','其他'].map(t=>`<label style="font-size:12px;display:flex;align-items:center;gap:3px"><input type="checkbox" value="${t}"> ${t}</label>`).join('')}
+        </div>
+      </div>
+      <div class="fg"><label>Q7: 是否愿意进入Havas Future Talent Pool？</label><select id="sf-pool"><option value="">请选择</option><option>Yes</option><option>No</option></select></div>
+      <button class="btn btn-p" style="width:100%;padding:12px;font-size:14px;margin-top:8px" onclick="submitStandaloneExit(${iid})">提交反馈</button>
+    </div>
+    <div id="sf-result" style="display:none"></div>
+  `;
+  document.body.appendChild(container);
+}
+
+function submitStandaloneExit(iid){
+  const p=interns.find(x=>x.id===iid);
+  const now=new Date().toISOString();
+  const likelihood=document.querySelector('input[name="sf-likelihood"]:checked');
+  const aitools=[...document.querySelectorAll('#sf-aitools input:checked')].map(x=>x.value);
+  const data={
+    __type:'ftp_exit',
+    _internName:p?p.name:'',
+    _internBu:p?p.bu:'',
+    likelihood:likelihood?+likelihood.value:0,
+    career:document.getElementById('sf-career').value,
+    plan:document.getElementById('sf-plan').value.trim(),
+    gain:document.getElementById('sf-gain').value.trim(),
+    strength:document.getElementById('sf-strength').value.trim(),
+    aitools,
+    pool:document.getElementById('sf-pool').value,
+    date:new Date().toISOString().slice(0,10),
+    updatedAt:now
+  };
+  if(!data.likelihood||!data.career){alert('请至少填写Q1和Q2');return}
+  const existing=exits.find(x=>x.internId===iid);
+  if(existing)exits=exits.filter(x=>x.id!==existing.id);
+  data.id=Date.now();data.internId=iid;
+  exits.push(data);SD('exits',exits);
+  
+  // Submit to cloud if connected (share link form mode)
+  const cloudPromise = isCloudConnected ? submitToCloud('exits', data) : Promise.resolve(false);
+  
+  cloudPromise.then(cloudOk => {
+    const cloudMsg = cloudOk ? '✅ 反馈已自动同步至HR系统' : '📋 请将结果文件发送给HRBP';
+    document.getElementById('sf-result').style.display='block';
+    document.getElementById('sf-result').innerHTML=`
+      <div class="card" style="text-align:center;margin-top:16px">
+        <div style="font-size:32px;margin-bottom:8px">✅</div>
+        <div style="font-size:16px;font-weight:600;margin-bottom:4px">反馈已提交！</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:16px">感谢你的时间，祝未来一切顺利！</div>
+        <div style="font-size:13px;color:${cloudOk?'var(--green)':'var(--text2)'};margin-bottom:12px">${cloudMsg}</div>
+        ${cloudOk?'':`<a href="${URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}))}" download="离职反馈_${data._internName}_${data.date}.json" class="btn btn-p">📥 下载结果文件</a>`}
+      </div>
+    `;
+    document.querySelectorAll('.card').forEach(c=>{if(!c.querySelector('#sf-result'))c.style.display='none'});
+  });
+}
+
+// ===== Init =====
+const formMode=checkFormMode();
+if(formMode){
+  initFormMode(formMode);
+}else{
+  refresh();
+  // Auto-init JSONBin cloud sync if config exists
+  autoInitJSONBin();
+}
+</script>
+</body>
+</html>
