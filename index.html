@@ -288,7 +288,10 @@ tr:hover td{background:rgba(91,76,219,0.03)}
     <div style="display:flex;gap:8px;margin-top:8px">
       <button class="btn btn-g" id="btn-connect" onclick="handleJSONBinConnect()">🔗 连接云同步</button>
       <button class="btn btn-d" id="btn-disconnect" onclick="handleJSONBinDisconnect()" style="display:none">⛔ 断开连接</button>
+      <button class="btn btn-s" id="btn-share-admin" onclick="shareAdminLink()" style="display:none"
+      >🔗 共享管理权限</button>
     </div>
+    <div id="share-admin-result" style="margin-top:8px;font-size:12px;display:none"></div>
   </div>
   
   <!-- Sync Actions -->
@@ -444,6 +447,7 @@ function updateCloudUI(connected) {
   const statusDesc = document.getElementById('cloud-status-desc');
   const btnConnect = document.getElementById('btn-connect');
   const btnDisconnect = document.getElementById('btn-disconnect');
+  const btnShareAdmin = document.getElementById('btn-share-admin');
   const syncActions = document.getElementById('sync-actions-card');
   
   if (connected) {
@@ -453,6 +457,7 @@ function updateCloudUI(connected) {
     statusDesc.textContent = '数据自动同步至 JSONBin（每30秒刷新）';
     btnConnect.style.display = 'none';
     btnDisconnect.style.display = 'inline-flex';
+    btnShareAdmin.style.display = 'inline-flex';
     syncActions.style.display = 'block';
     updateSyncIndicator('synced', '☁️ 已同步');
   } else {
@@ -462,6 +467,7 @@ function updateCloudUI(connected) {
     statusDesc.textContent = '输入 JSONBin API Key 即可开启跨设备数据同步';
     btnConnect.style.display = 'inline-flex';
     btnDisconnect.style.display = 'none';
+    btnShareAdmin.style.display = 'none';
     syncActions.style.display = 'none';
     updateSyncIndicator('offline', '⚠️ 离线');
   }
@@ -567,6 +573,25 @@ async function handleJSONBinConnect() {
     updateSyncIndicator('error', '❌ ' + err.message);
     alert('连接失败：' + err.message);
   }
+}
+
+function shareAdminLink(){
+  if(!jsonBinConfig||!jsonBinConfig.apiKey||!jsonBinConfig.binId){
+    alert('请先连接云同步后再生成共享链接');return;
+  }
+  const base=location.href.split('?')[0].split('#')[0];
+  const enc=btoa(JSON.stringify({k:jsonBinConfig.apiKey,b:jsonBinConfig.binId}));
+  const url=base+'?admin=1&cloud='+encodeURIComponent(enc);
+  const msg=\'【Havas Future Talent Pool 管理权限】\\n点击链接即可接入云端数据，拥有完整管理权限：\\n\'+url+\'\\n\\n⚠️ 此链接包含云同步凭证，请仅发送给信任的同事，切勿公开分享。\';
+  navigator.clipboard.writeText(msg).then(()=>{
+    const r=document.getElementById('share-admin-result');
+    r.style.display='block';
+    r.innerHTML='✅ 共享链接已复制到剪贴板，可直接粘贴发送给同事。<br><span style="color:#e53935">⚠️ 链接含云同步凭证，仅发送给信任的人，切勿公开分享！</span>';
+  }).catch(()=>{
+    const r=document.getElementById('share-admin-result');
+    r.style.display='block';
+    r.innerHTML='<input style="width:100%;font-size:11px;font-family:monospace" value="'+url+'" onclick="this.select()" readonly> <br><span style="color:#e53935">⚠️ 请手动复制链接，仅发送给信任的人！</span>';
+  });
 }
 
 function handleJSONBinDisconnect() {
@@ -1937,7 +1962,29 @@ function submitStandaloneExit(iid){
   });
 }
 
+// ===== Admin Share Link Handler =====
+function checkAdminShareLink(){
+  const params=new URLSearchParams(location.search);
+  const isAdmin=params.get('admin');
+  const cloudParam=params.get('cloud');
+  if(isAdmin==='1'&&cloudParam){
+    try{
+      const c=JSON.parse(atob(decodeURIComponent(cloudParam)));
+      if(c.k&&c.b){
+        // Save cloud config to localStorage so it persists
+        localStorage.setItem(JSONBIN_CONFIG_KEY,JSON.stringify({apiKey:c.k,binId:c.b}));
+        // Clean URL params to avoid sharing credentials in address bar
+        const cleanUrl=location.href.split('?')[0].split('#')[0];
+        history.replaceState(null,'',cleanUrl);
+        return true;
+      }
+    }catch(e){console.error('Failed to parse admin share link:',e)}
+  }
+  return false;
+}
+
 // ===== Init =====
+const adminInited=checkAdminShareLink();
 const formMode=checkFormMode();
 if(formMode){
   initFormMode(formMode);
@@ -1945,6 +1992,16 @@ if(formMode){
   refresh();
   // Auto-init JSONBin cloud sync if config exists
   autoInitJSONBin();
+  // Show welcome toast for admin share link
+  if(adminInited){
+    setTimeout(()=>{
+      const t=document.createElement('div');
+      t.style.cssText='position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#4caf50;color:#fff;padding:12px 24px;border-radius:8px;font-size:14px;z-index:99999;box-shadow:0 2px 12px rgba(0,0,0,.2)';
+      t.textContent='✅ 已自动连接云同步，可正常管理所有数据';
+      document.body.appendChild(t);
+      setTimeout(()=>t.remove(),4000);
+    },1500);
+  }
 }
 </script>
 </body>
