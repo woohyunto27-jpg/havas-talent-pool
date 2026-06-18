@@ -577,20 +577,20 @@ async function handleJSONBinConnect() {
 
 function shareAdminLink(){
   if(!jsonBinConfig||!jsonBinConfig.apiKey||!jsonBinConfig.binId){
-    alert('请先连接云同步后再生成共享链接');return;
+    alert(`请先连接云同步后再生成共享链接`);return;
   }
   const base=location.href.split('?')[0].split('#')[0];
   const enc=btoa(JSON.stringify({k:jsonBinConfig.apiKey,b:jsonBinConfig.binId}));
   const url=base+'?admin=1&cloud='+encodeURIComponent(enc);
-  const msg=\'【Havas Future Talent Pool 管理权限】\\n点击链接即可接入云端数据，拥有完整管理权限：\\n\'+url+\'\\n\\n⚠️ 此链接包含云同步凭证，请仅发送给信任的同事，切勿公开分享。\';
+  const msg=`【Havas Future Talent Pool 管理权限】\n点击链接即可接入云端数据，拥有完整管理权限：\n${url}\n\n⚠️ 此链接包含云同步凭证，请仅发送给信任的同事，切勿公开分享。`;
   navigator.clipboard.writeText(msg).then(()=>{
     const r=document.getElementById('share-admin-result');
     r.style.display='block';
-    r.innerHTML='✅ 共享链接已复制到剪贴板，可直接粘贴发送给同事。<br><span style="color:#e53935">⚠️ 链接含云同步凭证，仅发送给信任的人，切勿公开分享！</span>';
+    r.innerHTML=`✅ 共享链接已复制到剪贴板，可直接粘贴发送给同事。<br><span style="color:#e53935">⚠️ 链接含云同步凭证，仅发送给信任的人，切勿公开分享！</span>`;
   }).catch(()=>{
     const r=document.getElementById('share-admin-result');
     r.style.display='block';
-    r.innerHTML='<input style="width:100%;font-size:11px;font-family:monospace" value="'+url+'" onclick="this.select()" readonly> <br><span style="color:#e53935">⚠️ 请手动复制链接，仅发送给信任的人！</span>';
+    r.innerHTML=`<input style="width:100%;font-size:11px;font-family:monospace" value="${url}" onclick="this.select()" readonly> <br><span style="color:#e53935">⚠️ 请手动复制链接，仅发送给信任的人！</span>`;
   });
 }
 
