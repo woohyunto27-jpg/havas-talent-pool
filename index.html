@@ -665,13 +665,11 @@ function mergeCloudData(cloudData) {
     });
   }
   
-  if (changed) {
-    // Save without triggering cloud push (to avoid infinite loop)
-    localStorage.setItem('ftp_interns', JSON.stringify(interns));
-    localStorage.setItem('ftp_evals', JSON.stringify(evals));
-    localStorage.setItem('ftp_exits', JSON.stringify(exits));
-    if (typeof refresh === 'function') refresh();
-  }
+  // Always save and refresh when cloud data is pulled
+  localStorage.setItem('ftp_interns', JSON.stringify(interns));
+  localStorage.setItem('ftp_evals', JSON.stringify(evals));
+  localStorage.setItem('ftp_exits', JSON.stringify(exits));
+  if (typeof refresh === 'function') refresh();
   
   return changed;
 }
@@ -702,6 +700,8 @@ async function handlePullFromCloud(silent = false) {
       if (!silent) showSyncResult('云端暂无数据，已推送本地数据', 'info');
     }
     
+    // Always refresh UI after pull
+    if (typeof refresh === 'function') refresh();
     updateSyncIndicator('synced', '☁️ 已同步');
   } catch (err) {
     console.error('Pull failed:', err);
@@ -823,7 +823,6 @@ function autoInitJSONBin() {
     initJSONBin(config.apiKey, config.binId)
       .then(() => {
         updateCloudUI(true);
-        // Update bin ID field if auto-created
         if (document.getElementById('jsonbin-binid') && jsonBinConfig.binId) {
           document.getElementById('jsonbin-binid').value = jsonBinConfig.binId;
         }
@@ -833,6 +832,8 @@ function autoInitJSONBin() {
       .then(() => {
         console.log('JSONBin auto-connected successfully');
         updateSyncIndicator('synced', '☁️ 已同步');
+        // Force refresh after cloud data is loaded
+        if (typeof refresh === 'function') refresh();
       })
       .catch(err => {
         console.error('JSONBin auto-init failed:', err);
@@ -1971,11 +1972,11 @@ function checkAdminShareLink(){
     try{
       const c=JSON.parse(atob(decodeURIComponent(cloudParam)));
       if(c.k&&c.b){
-        // Save cloud config to localStorage so it persists
         localStorage.setItem(JSONBIN_CONFIG_KEY,JSON.stringify({apiKey:c.k,binId:c.b}));
         // Clean URL params to avoid sharing credentials in address bar
         const cleanUrl=location.href.split('?')[0].split('#')[0];
         history.replaceState(null,'',cleanUrl);
+        console.log('Admin share: cloud config saved, will auto-connect on init');
         return true;
       }
     }catch(e){console.error('Failed to parse admin share link:',e)}
