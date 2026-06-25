@@ -147,6 +147,7 @@ tr:hover td{background:rgba(91,76,219,0.03)}
   <div class="nav-tab" data-page="exit">离职反馈</div>
   <div class="nav-tab" data-page="talent">人才池</div>
   <div class="nav-tab" data-page="ai-profile">AI画像</div>
+  <div class="nav-tab" data-page="report">📊 报告</div>
   <div class="nav-tab" data-page="ceo">CEO看板</div>
   <div class="nav-tab" data-page="cloudsync">⚙️ 云同步</div>
   <div class="nav-sync offline" id="sync-indicator">⚠️ 未连接</div>
@@ -222,13 +223,35 @@ tr:hover td{background:rgba(91,76,219,0.03)}
   <div id="talent-cards"></div>
 </div>
 
-<!-- PAGE: AI Profile -->
+<!-- PAGE: AI Profile (3-level drill-down) -->
 <div class="page" id="pg-ai-profile">
-  <h2 style="font-size:18px;font-weight:700;margin-bottom:14px">🤖 AI人才画像</h2>
-  <div class="toolbar">
-    <select id="ap-intern" onchange="renderAIProfile()"><option value="">选择实习生查看画像</option></select>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+    <h2 style="font-size:18px;font-weight:700">🤖 AI人才画像</h2>
+    <div id="ap-breadcrumb" style="font-size:12px;color:var(--text2)"></div>
   </div>
   <div id="ai-profile-content"></div>
+</div>
+
+<!-- PAGE: Report -->
+<div class="page" id="pg-report">
+  <h2 style="font-size:18px;font-weight:700;margin-bottom:14px">📊 人才分析报告</h2>
+  <div class="stats-grid" id="report-stats"></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px">
+    <div class="chart-wrap"><div class="card-title">🎓 学校分布 Top 10</div><canvas id="chart-rpt-school"></canvas></div>
+    <div class="chart-wrap"><div class="card-title">📚 专业分布 Top 10</div><canvas id="chart-rpt-major"></canvas></div>
+  </div>
+  <div class="card" style="margin-top:16px">
+    <div class="card-title">🏥 Havas Health 医药背景人才</div>
+    <div id="report-health-pharma"></div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px">
+    <div class="chart-wrap"><div class="card-title">🏢 各BU学校分布</div><canvas id="chart-rpt-bu-school"></canvas></div>
+    <div class="chart-wrap"><div class="card-title">🏢 各BU专业分布</div><canvas id="chart-rpt-bu-major"></canvas></div>
+  </div>
+  <div class="card" style="margin-top:16px">
+    <div class="card-title">📋 全部学生学校 & 专业明细</div>
+    <div id="report-detail-table"></div>
+  </div>
 </div>
 
 <!-- PAGE: CEO Dashboard -->
@@ -1254,38 +1277,170 @@ function renderTalent(){
 
 // ===== AI Profile =====
 function tierLabel(t){return{'Star':'⭐ Future Star','Talent':'🔵 Future Talent','General':'⚪ General Pool','DNR':'🚫 Do Not Rehire'}[t]||'⚪ General Pool'}
+
+// AI Profile drill-down state
+let apLevel=1; // 1=total, 2=bu, 3=individual
+let apSelectedBU=null;
+let apSelectedIntern=null;
+
+const DIMS=[
+  {key:'work',label:'工作表现',color:'#5b4cdb',icon:'💼'},
+  {key:'learn',label:'学习能力',color:'#00a884',icon:'📚'},
+  {key:'proactive',label:'主动性',color:'#d4a017',icon:'🚀'},
+  {key:'ai',label:'AI能力',color:'#8b5cf6',icon:'🤖'},
+  {key:'comm',label:'沟通协作',color:'#3d8bfd',icon:'🤝'},
+  {key:'resilience',label:'韧性',color:'#e5484d',icon:'💪'}
+];
+
+const MEDICAL_KEYWORDS=['药','医','制药','临床','药学','中药','生物医学','公共卫生','护理','口腔','医学','pharma','medical','medicine','pharmaceutical','biomed','clinical','nursing','healthcare'];
+
+function isMedicalMajor(major){
+  if(!major)return false;
+  const m=major.toLowerCase();
+  return MEDICAL_KEYWORDS.some(kw=>m.includes(kw));
+}
+
+function calcAvgDims(internList){
+  const rated=internList.map(p=>evals.find(e=>e.internId===p.id)).filter(Boolean);
+  if(!rated.length)return DIMS.map(()=>0);
+  return DIMS.map(d=>{
+    const scores=rated.map(e=>+(e[d.key])||0).filter(s=>s>0);
+    return scores.length?(scores.reduce((a,b)=>a+b,0)/scores.length):0;
+  });
+}
+
 function renderAIProfile(){
-  const internId=+document.getElementById('ap-intern').value;
   const el=document.getElementById('ai-profile-content');
-  if(!internId){el.innerHTML='';return}
-  const p=interns.find(x=>x.id===internId);
-  if(!p){el.innerHTML='';return}
-  const e=evals.find(x=>x.internId===internId);
-  const ex=exits.find(x=>x.internId===internId);
-  const t=getTalentTier(internId);
-  
+  const bc=document.getElementById('ap-breadcrumb');
+  if(apLevel===3&&apSelectedIntern)renderAPIndividual(el,bc);
+  else if(apLevel===2&&apSelectedBU)renderAPBU(el,bc);
+  else renderAPTotal(el,bc);
+}
+
+function renderAPTotal(el,bc){
+  bc.innerHTML=``;
+  const rated=interns.filter(p=>evals.find(e=>e.internId===p.id));
+  if(!rated.length){el.innerHTML=`<div class="card" style="text-align:center;padding:30px;color:var(--text2)">暂无评价数据，请先在「Manager评价」中添加评价</div>`;return}
+  const avg=calcAvgDims(rated);
+  const totalScore=(avg.reduce((s,v)=>s+v,0)/avg.length);
+  const buLabels=['Havas Creative','Havas Media','Havas Health','Havas Events','BETC'];
+  const buStats=buLabels.map(b=>{
+    const bi=interns.filter(p=>p.bu===b);
+    const ri=bi.filter(p=>evals.find(e=>e.internId===p.id));
+    const a=calcAvgDims(ri);
+    const ts=a.length?(a.reduce((s,v)=>s+v,0)/a.length):0;
+    const stars=bi.filter(p=>getTalentTier(p.id)==='Star').length;
+    const talents=bi.filter(p=>getTalentTier(p.id)==='Talent').length;
+    return{bu:b,total:bi.length,rated:ri.length,avg:a,score:ts,stars,talents};
+  });
+  const stars=interns.filter(p=>getTalentTier(p.id)==='Star').length;
+  const talents=interns.filter(p=>getTalentTier(p.id)==='Talent').length;
+
+  el.innerHTML=`
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div><div style="font-size:16px;font-weight:700">全部人才画像总览</div>
+        <div style="font-size:13px;color:var(--text2);margin-top:2px">已评价 ${rated.length} / ${interns.length} 人 · ⭐ Star ${stars} · 🔵 Talent ${talents}</div></div>
+        <div style="text-align:right"><div style="font-size:28px;font-weight:700;color:var(--accent)">${totalScore.toFixed(1)}<span style="font-size:12px;color:var(--text2);font-weight:400"> / 5</span></div><div style="font-size:11px;color:var(--text2)">综合均分</div></div>
+      </div>
+    </div>
+    <div class="card" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start">
+      <div style="text-align:center"><h4 style="font-size:14px;font-weight:600;margin-bottom:8px;text-align:left">📊 全员六维雷达</h4><canvas id="ap-radar-total" style="max-height:280px"></canvas></div>
+      <div><h4 style="font-size:14px;font-weight:600;margin-bottom:10px">📈 各维度均分</h4>
+        <div style="display:flex;flex-direction:column;gap:8px">${DIMS.map((d,i)=>`
+          <div style="display:flex;align-items:center;gap:8px"><span style="font-size:14px;width:20px;text-align:center">${d.icon}</span><span style="font-size:12px;width:60px;color:var(--text2)">${d.label}</span>
+          <div style="flex:1;height:8px;background:var(--bg);border-radius:4px;overflow:hidden"><div style="width:${avg[i]?avg[i]/5*100:0}%;height:100%;background:${d.color};border-radius:4px"></div></div>
+          <span style="font-size:13px;font-weight:600;color:${avg[i]>=4?d.color:avg[i]<=2&&avg[i]>0?'var(--red)':'var(--text)'};width:36px;text-align:right">${avg[i]?avg[i].toFixed(1):'-'}</span></div>`).join('')}
+        </div>
+      </div>
+    </div>
+    <div class="card"><h4 style="font-size:14px;font-weight:600;margin-bottom:12px">🏢 点击BU查看BU画像</h4>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px">${buStats.map(b=>`
+        <div onclick="apDrillBU('${b.bu}')" style="cursor:pointer;padding:14px;border:1px solid var(--border);border-radius:10px;transition:all .15s;${b.bu==='Havas Health'?'border-left:3px solid #e5484d;':''}" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'${b.bu==='Havas Health'?";this.style.borderLeftColor='#e5484d'":""}">
+          <div style="font-weight:600;font-size:13px">${b.bu==='Havas Health'?'🏥 ':''}${b.bu}</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:4px">总${b.total}人 · 已评${b.rated}人</div>
+          <div style="font-size:12px;margin-top:4px">⭐ ${b.stars} · 🔵 ${b.talents}</div>
+          <div style="font-size:16px;font-weight:700;color:var(--accent);margin-top:6px">${b.score?b.score.toFixed(1):'-'}<span style="font-size:10px;color:var(--text2);font-weight:400"> / 5</span></div>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  drawRadar('ap-radar-total',avg,DIMS);
+}
+
+function renderAPBU(el,bc){
+  const buInterns=interns.filter(p=>p.bu===apSelectedBU);
+  const rated=buInterns.filter(p=>evals.find(e=>e.internId===p.id));
+  const avg=calcAvgDims(rated);
+  const totalScore=avg.length?(avg.reduce((s,v)=>s+v,0)/avg.length):0;
+  const starsList=buInterns.filter(p=>getTalentTier(p.id)==='Star');
+  const talentsList=buInterns.filter(p=>getTalentTier(p.id)==='Talent');
+  const isHealth=apSelectedBU==='Havas Health';
+  const medicalInterns=isHealth?buInterns.filter(p=>isMedicalMajor(p.major)):[];
+
+  bc.innerHTML=`<span style="cursor:pointer;color:var(--accent)" onclick="apBackToTotal()">全员总览</span> <span style="margin:0 6px">›</span> ${isHealth?'🏥 ':''}${apSelectedBU}`;
+
+  el.innerHTML=`
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div><div style="font-size:16px;font-weight:700">${isHealth?'🏥 ':''}${apSelectedBU} 画像</div>
+        <div style="font-size:13px;color:var(--text2);margin-top:2px">已评价 ${rated.length} / ${buInterns.length} 人 · ⭐ Star ${starsList.length} · 🔵 Talent ${talentsList.length}</div></div>
+        <div style="text-align:right"><div style="font-size:28px;font-weight:700;color:var(--accent)">${totalScore?totalScore.toFixed(1):'-'}<span style="font-size:12px;color:var(--text2);font-weight:400"> / 5</span></div><div style="font-size:11px;color:var(--text2)">BU均分</div></div>
+      </div>
+    </div>
+    <div class="card" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start">
+      <div style="text-align:center"><h4 style="font-size:14px;font-weight:600;margin-bottom:8px;text-align:left">📊 BU六维雷达</h4><canvas id="ap-radar-bu" style="max-height:280px"></canvas></div>
+      <div><h4 style="font-size:14px;font-weight:600;margin-bottom:10px">📈 各维度均分</h4>
+        <div style="display:flex;flex-direction:column;gap:8px">${DIMS.map((d,i)=>`
+          <div style="display:flex;align-items:center;gap:8px"><span style="font-size:14px;width:20px;text-align:center">${d.icon}</span><span style="font-size:12px;width:60px;color:var(--text2)">${d.label}</span>
+          <div style="flex:1;height:8px;background:var(--bg);border-radius:4px;overflow:hidden"><div style="width:${avg[i]?avg[i]/5*100:0}%;height:100%;background:${d.color};border-radius:4px"></div></div>
+          <span style="font-size:13px;font-weight:600;width:36px;text-align:right">${avg[i]?avg[i].toFixed(1):'-'}</span></div>`).join('')}
+        </div>
+      </div>
+    </div>
+    ${isHealth&&medicalInterns.length?`<div class="card" style="border-left:3px solid #e5484d"><h4 style="font-size:14px;font-weight:600;margin-bottom:10px;color:#e5484d">🏥 医药背景人才 (${medicalInterns.length}人)</h4>
+      <div style="display:flex;flex-direction:column;gap:8px">${medicalInterns.map(p=>{
+        const e=evals.find(x=>x.internId===p.id);
+        const t=getTalentTier(p.id);
+        return`<div onclick="apDrillIntern(${p.id})" style="cursor:pointer;padding:10px 12px;background:rgba(229,72,77,.04);border:1px solid rgba(229,72,77,.15);border-radius:8px;display:flex;justify-content:space-between;align-items:center" onmouseover="this.style.background='rgba(229,72,77,.08)'" onmouseout="this.style.background='rgba(229,72,77,.04)'">
+          <div><span style="font-weight:600">${esc(p.name)}</span><span style="margin-left:8px;font-size:12px;color:#e5484d;background:rgba(229,72,77,.1);padding:2px 8px;border-radius:4px">💊 ${esc(p.major)}</span><span style="margin-left:6px;font-size:11px;color:var(--text2)">${esc(p.school||'')}</span></div>
+          <div><span class="badge ${t==='Star'?'badge-yellow':t==='Talent'?'badge-blue':'badge-gray'}" style="font-size:11px">${tierLabel(t)}</span>${e&&e.overall?`<span style="margin-left:6px;font-size:12px;font-weight:600">${e.overall}/5</span>`:''}</div>
+        </div>`}).join('')}
+      </div>
+    </div>`:''}
+    <div class="card"><h4 style="font-size:14px;font-weight:600;margin-bottom:12px">👤 点击查看个人画像</h4>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px">${buInterns.map(p=>{
+        const e=evals.find(x=>x.internId===p.id);
+        const t=getTalentTier(p.id);
+        const isMed=isHealth&&isMedicalMajor(p.major);
+        return`<div onclick="apDrillIntern(${p.id})" style="cursor:pointer;padding:12px;border:1px solid ${isMed?'rgba(229,72,77,.3)':'var(--border)'};border-radius:10px;transition:all .15s;${isMed?'background:rgba(229,72,77,.03);':''}" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='${isMed?'rgba(229,72,77,.3)':'var(--border)'}'">
+          <div style="font-weight:600;font-size:13px">${esc(p.name)}${isMed?' 💊':''}</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:2px">${esc(p.school||'-')} · ${esc(p.major||'-')}</div>
+          <div style="margin-top:6px;display:flex;gap:4px;align-items:center"><span class="badge ${t==='Star'?'badge-yellow':t==='Talent'?'badge-blue':t==='DNR'?'badge-red':'badge-gray'}" style="font-size:10px;padding:2px 6px">${tierLabel(t)}</span>${e&&e.overall?`<span style="font-size:11px;color:var(--text2)">${e.overall}/5</span>`:''}</div>
+        </div>`}).join('')}
+      </div>
+    </div>`;
+  drawRadar('ap-radar-bu',avg,DIMS);
+}
+
+function renderAPIndividual(el,bc){
+  const p=interns.find(x=>x.id===apSelectedIntern);
+  if(!p){apLevel=1;renderAIProfile();return}
+  const e=evals.find(x=>x.internId===apSelectedIntern);
+  const ex=exits.find(x=>x.internId===apSelectedIntern);
+  const t=getTalentTier(p.id);
+  const isMed=p.bu==='Havas Health'&&isMedicalMajor(p.major);
+
+  bc.innerHTML=`<span style="cursor:pointer;color:var(--accent)" onclick="apBackToTotal()">全员总览</span> <span style="margin:0 6px">›</span> <span style="cursor:pointer;color:var(--accent)" onclick="apDrillBU('${p.bu}')">${p.bu==='Havas Health'?'🏥 ':''}${p.bu}</span> <span style="margin:0 6px">›</span> ${p.name}`;
+
   if(!e){el.innerHTML=`<div class="card" style="text-align:center;padding:30px;color:var(--text2)">暂无评价数据<br>请先在「Manager评价」中添加评价</div>`;return}
 
-  // 6 dimensions (no overall) — force Number to avoid string concatenation
-  const dims=[
-    {key:'work',label:'工作表现',score:+e.work||0,color:'#5b4cdb',icon:'💼'},
-    {key:'learn',label:'学习能力',score:+e.learn||0,color:'#00a884',icon:'📚'},
-    {key:'proactive',label:'主动性',score:+e.proactive||0,color:'#d4a017',icon:'🚀'},
-    {key:'ai',label:'AI能力',score:+e.ai||0,color:'#8b5cf6',icon:'🤖'},
-    {key:'comm',label:'沟通协作',score:+e.comm||0,color:'#3d8bfd',icon:'🤝'},
-    {key:'resilience',label:'韧性',score:+e.resilience||0,color:'#e5484d',icon:'💪'}
-  ];
-  // Total score out of 5 (unrated dims count as 0)
+  const dims=DIMS.map(d=>({...d,score:+(e[d.key])||0}));
   const totalScore=(dims.reduce((s,d)=>s+d.score,0)/dims.length);
   const ratedCount=dims.filter(d=>d.score>0).length;
 
-  // Generate key insights
   const insights=[];
   const strengths=[];const weaknesses=[];
-  dims.forEach(d=>{
-    if(d.score>=4)strengths.push(d);
-    if(d.score<=2&&d.score>0)weaknesses.push(d);
-  });
+  dims.forEach(d=>{if(d.score>=4)strengths.push(d);if(d.score<=2&&d.score>0)weaknesses.push(d)});
   if(strengths.length)insights.push(`💡 突出优势：${strengths.map(d=>`${d.icon}${d.label}(${d.score}分)`).join('、')}`);
   if(weaknesses.length)insights.push(`⚠️ 提升空间：${weaknesses.map(d=>`${d.icon}${d.label}(${d.score}分)`).join('、')}`);
   if(e.potential==='Yes')insights.push('🌟 被识别为高潜人才');
@@ -1299,6 +1454,7 @@ function renderAIProfile(){
   if(ex&&ex.aitools&&ex.aitools.length>=3)insights.push(`🛠️ AI工具达人：熟练使用${ex.aitools.length}种工具`);
   if(ex&&ex.career)insights.push(`🎯 职业方向明确：${ex.career.split('（')[0]}`);
   if(!strengths.length&&!weaknesses.length&&totalScore>=3)insights.push('📊 各维度均衡发展，无明显短板');
+  if(isMed)insights.push('💊 医药背景：适合Havas Health健康传播业务');
 
   const rehireRec=t==='Star'?'🟢 Strong Hire Potential':t==='Talent'?'🔵 Hire':t==='DNR'?'🔴 Not Recommended':'⚪ Keep In Touch';
 
@@ -1306,7 +1462,7 @@ function renderAIProfile(){
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
         <div>
-          <div style="font-size:20px;font-weight:700">${esc(p.name)}</div>
+          <div style="font-size:20px;font-weight:700">${esc(p.name)}${isMed?' <span style="font-size:12px;color:#e5484d;background:rgba(229,72,77,.1);padding:2px 8px;border-radius:4px;vertical-align:middle">💊 医药背景</span>':''}</div>
           <div style="font-size:13px;color:var(--text2);margin-top:2px">${esc(p.school||'-')} · ${esc(p.major||'-')} · ${p.grad||'-'}届 · ${esc(p.bu)}${p.phone?' · 📱'+esc(p.phone):''}</div>
         </div>
         <div style="text-align:right">
@@ -1323,7 +1479,7 @@ function renderAIProfile(){
     <div class="card" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start">
       <div style="text-align:center">
         <h4 style="font-size:14px;font-weight:600;margin-bottom:8px;text-align:left">📊 六维能力雷达</h4>
-        <canvas id="ai-radar" style="max-height:280px"></canvas>
+        <canvas id="ap-radar-individual" style="max-height:280px"></canvas>
         <div style="margin-top:10px;font-size:20px;font-weight:700;color:var(--accent)">${totalScore.toFixed(1)}<span style="font-size:12px;color:var(--text2);font-weight:400"> / 5 总评分</span></div>
         ${ratedCount<dims.length?`<div style="font-size:11px;color:var(--text2);margin-top:2px">已评 ${ratedCount}/${dims.length} 项，未评项按0分计</div>`:''}
       </div>
@@ -1376,55 +1532,101 @@ function renderAIProfile(){
           ${ex.strength?`<div><b>自述优势：</b>${esc(ex.strength)}</div>`:''}
         </div>
       </div>`:'<div class="profile-section"><h4>📝 离职反馈</h4><div style="font-size:12px;color:var(--text2)">暂无反馈</div></div>'}
-    </div>
-  `;
+    </div>`;
 
-  // Draw 6-dimension radar chart
-  const ctx=document.getElementById('ai-radar');
-  if(ctx){
-    new Chart(ctx,{
-      type:'radar',
-      data:{
-        labels:dims.map(d=>d.label),
-        datasets:[{
-          label:'能力评分',
-          data:dims.map(d=>d.score||0),
-          backgroundColor:'rgba(91,76,219,0.15)',
-          borderColor:'#5b4cdb',
-          borderWidth:2,
-          pointBackgroundColor:dims.map(d=>d.color),
-          pointBorderColor:'#fff',
-          pointBorderWidth:1,
-          pointRadius:5,
-          pointHoverRadius:7
-        },{
-          label:'平均线',
-          data:dims.map(()=>+totalScore.toFixed(1)),
-          backgroundColor:'transparent',
-          borderColor:'rgba(107,112,132,0.3)',
-          borderWidth:1,
-          borderDash:[4,4],
-          pointRadius:0,
-          pointHoverRadius:0
-        }]
-      },
-      options:{
-        responsive:true,
-        plugins:{legend:{display:false}},
-        scales:{r:{
-          beginAtZero:true,
-          max:5,
-          ticks:{stepSize:1,font:{size:10},backdropColor:'transparent'},
-          pointLabels:{font:{size:12,weight:'500'},color:dims.map(d=>d.color)},
-          grid:{color:'rgba(0,0,0,0.06)'},
-          angleLines:{color:'rgba(0,0,0,0.06)'}
-        }}
-      }
-    });
+  drawRadar('ap-radar-individual',dims.map(d=>d.score),DIMS);
+}
+
+function drawRadar(canvasId,values,dims){
+  const ctx=document.getElementById(canvasId);
+  if(!ctx)return;
+  new Chart(ctx,{
+    type:'radar',
+    data:{labels:dims.map(d=>d.label),datasets:[{
+      label:'能力评分',data:values,
+      backgroundColor:'rgba(91,76,219,0.15)',borderColor:'#5b4cdb',borderWidth:2,
+      pointBackgroundColor:dims.map(d=>d.color),pointBorderColor:'#fff',pointBorderWidth:1,pointRadius:5,pointHoverRadius:7
+    }]},
+    options:{responsive:true,plugins:{legend:{display:false}},scales:{r:{
+      beginAtZero:true,max:5,
+      ticks:{stepSize:1,font:{size:10},backdropColor:'transparent'},
+      pointLabels:{font:{size:12,weight:'500'},color:dims.map(d=>d.color)},
+      grid:{color:'rgba(0,0,0,0.06)'},angleLines:{color:'rgba(0,0,0,0.06)'}
+    }}}
+  });
+}
+
+function apBackToTotal(){apLevel=1;apSelectedBU=null;apSelectedIntern=null;renderAIProfile()}
+function apDrillBU(bu){apLevel=2;apSelectedBU=bu;apSelectedIntern=null;renderAIProfile()}
+function apDrillIntern(id){apLevel=3;apSelectedIntern=id;renderAIProfile()}
+
+// ===== Report Page =====
+function renderReport(){
+  const total=interns.length;
+  const healthInterns=interns.filter(p=>p.bu==='Havas Health');
+  const medInterns=healthInterns.filter(p=>isMedicalMajor(p.major));
+
+  // Stats
+  document.getElementById('report-stats').innerHTML=[
+    ['👥 实习生总数',total],
+    ['🏥 Health BU',healthInterns.length],
+    ['💊 医药背景',medInterns.length],
+    ['📚 有专业信息',interns.filter(p=>p.major).length],
+    ['🎓 有学校信息',interns.filter(p=>p.school).length],
+    ['📈 医药占比',healthInterns.length?Math.round(medInterns.length/healthInterns.length*100)+'%':'-']
+  ].map(([l,n])=>`<div class="stat-box"><div class="num">${n}</div><div class="lbl">${l}</div></div>`).join('');
+
+  // School chart
+  const schoolMap={};interns.forEach(p=>{if(p.school)schoolMap[p.school]=(schoolMap[p.school]||0)+1});
+  const topSchools=Object.entries(schoolMap).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  if(topSchools.length)new Chart(document.getElementById('chart-rpt-school'),{type:'bar',data:{labels:topSchools.map(s=>s[0]),datasets:[{label:'人数',data:topSchools.map(s=>s[1]),backgroundColor:topSchools.map((_,i)=>['#5b4cdb','#00a884','#d4a017','#3d8bfd','#e5484d','#8b5cf6','#d45d22','#00a884','#5b4cdb','#3d8bfd'][i])}]},options:{responsive:true,indexAxis:'y',plugins:{legend:{display:false}}}});
+
+  // Major chart - medical highlighted in red
+  const majorMap={};interns.forEach(p=>{if(p.major)majorMap[p.major]=(majorMap[p.major]||0)+1});
+  const topMajors=Object.entries(majorMap).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  const isMedMajor=topMajors.map(([m])=>isMedicalMajor(m));
+  if(topMajors.length)new Chart(document.getElementById('chart-rpt-major'),{type:'bar',data:{labels:topMajors.map(m=>m[0]),datasets:[{label:'人数',data:topMajors.map(m=>m[1]),backgroundColor:isMedMajor.map(med=>med?'#e5484d':'#5b4cdb')}]},options:{responsive:true,indexAxis:'y',plugins:{legend:{display:false}}}});
+
+  // Health pharma section
+  const phEl=document.getElementById('report-health-pharma');
+  if(medInterns.length){
+    phEl.innerHTML=`<div style="margin-bottom:10px;font-size:13px;color:var(--text2)">Havas Health 共 ${healthInterns.length} 人，其中 ${medInterns.length} 人具有医药背景（${Math.round(medInterns.length/healthInterns.length*100)}%）</div>
+    <div style="display:flex;flex-direction:column;gap:8px">${medInterns.map(p=>{
+      const e=evals.find(x=>x.internId===p.id);
+      const t=getTalentTier(p.id);
+      return`<div style="padding:10px 14px;background:rgba(229,72,77,.04);border:1px solid rgba(229,72,77,.2);border-radius:8px;display:flex;justify-content:space-between;align-items:center">
+        <div><span style="font-weight:600">${esc(p.name)}</span><span style="margin-left:8px;font-size:12px;color:#e5484d;background:rgba(229,72,77,.1);padding:2px 8px;border-radius:4px">💊 ${esc(p.major)}</span><span style="margin-left:6px;font-size:11px;color:var(--text2)">${esc(p.school||'')} · ${p.grad||'-'}届</span></div>
+        <div><span class="badge ${t==='Star'?'badge-yellow':t==='Talent'?'badge-blue':'badge-gray'}" style="font-size:11px">${tierLabel(t)}</span>${e&&e.overall?`<span style="margin-left:6px;font-size:12px;font-weight:600">${e.overall}/5</span>`:''}</div>
+      </div>`}).join('')}
+    </div>`;
+  }else{
+    phEl.innerHTML=`<div style="color:var(--text2);font-size:13px">Havas Health 暂无医药背景人才${healthInterns.length?`（共${healthInterns.length}人，均非医药专业）`:''}</div>`;
+  }
+
+  // BU-school stacked chart
+  const buLabels=['Havas Creative','Havas Media','Havas Health','Havas Events','BETC'];
+  const allSchools=[...new Set(interns.filter(p=>p.school).map(p=>p.school))];
+  const top5Schools=allSchools.sort((a,b)=>(interns.filter(p=>p.school===b).length)-(interns.filter(p=>p.school===a).length)).slice(0,5);
+  if(top5Schools.length)new Chart(document.getElementById('chart-rpt-bu-school'),{type:'bar',data:{labels:buLabels,datasets:top5Schools.map((s,i)=>({label:s,data:buLabels.map(b=>interns.filter(p=>p.bu===b&&p.school===s).length),backgroundColor:['#5b4cdb','#00a884','#d4a017','#3d8bfd','#e5484d'][i]}))},options:{responsive:true,scales:{x:{stacked:true},y:{stacked:true}},plugins:{legend:{position:'bottom',labels:{font:{size:10}}}}}});
+
+  // BU-major stacked chart - medical majors in red
+  const allMajors=[...new Set(interns.filter(p=>p.major).map(p=>p.major))];
+  const top5Majors=allMajors.sort((a,b)=>(interns.filter(p=>p.major===b).length)-(interns.filter(p=>p.major===a).length)).slice(0,5);
+  if(top5Majors.length)new Chart(document.getElementById('chart-rpt-bu-major'),{type:'bar',data:{labels:buLabels,datasets:top5Majors.map((m,i)=>({label:m,data:buLabels.map(b=>interns.filter(p=>p.bu===b&&p.major===m).length),backgroundColor:isMedicalMajor(m)?'#e5484d':['#5b4cdb','#00a884','#d4a017','#3d8bfd'][i]}))},options:{responsive:true,scales:{x:{stacked:true},y:{stacked:true}},plugins:{legend:{position:'bottom',labels:{font:{size:10}}}}}});
+
+  // Detail table
+  const dtEl=document.getElementById('report-detail-table');
+  if(interns.length){
+    dtEl.innerHTML=`<div class="tbl-wrap"><table style="font-size:12px"><thead><tr><th>姓名</th><th>BU</th><th>学校</th><th>专业</th><th>毕业</th><th>画像</th></tr></thead><tbody>${interns.map(p=>{
+      const isMed=p.bu==='Havas Health'&&isMedicalMajor(p.major);
+      const t=getTalentTier(p.id);
+      return`<tr${isMed?' style="background:rgba(229,72,77,.05)"':''}><td>${esc(p.name)}${isMed?' 💊':''}</td><td>${esc(p.bu)}</td><td>${esc(p.school||'-')}</td><td>${isMed?`<span style="color:#e5484d;font-weight:600">${esc(p.major)}</span>`:esc(p.major||'-')}</td><td>${p.grad||'-'}</td><td><span class="badge ${t==='Star'?'badge-yellow':t==='Talent'?'badge-blue':t==='DNR'?'badge-red':'badge-gray'}" style="font-size:10px;padding:2px 6px">${tierLabel(t)}</span></td></tr>`}).join('')}</tbody></table></div>`;
+  }else{
+    dtEl.innerHTML=`<div style="color:var(--text2);font-size:12px">暂无数据</div>`;
   }
 }
 
-// ===== CEO Dashboard =====
+
 function renderCEO(){
   const total=interns.length;
   const active=interns.filter(x=>x.status==='在职').length;
@@ -1701,8 +1903,7 @@ async function submitToCloud(dataType, newData){
 // ===== Refresh =====
 function refresh(){
   renderDashboard();renderInterns();renderEvals();renderExits();renderTalent();
-  populateInternSelect('ap-intern');
-  renderAIProfile();renderCEO();
+  renderAIProfile();renderReport();renderCEO();
 }
 
 // ===== Share Form Links =====
